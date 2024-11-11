@@ -9,15 +9,18 @@ import Kingfisher
 import LocalAuthentication
 import ComposableArchitecture
 
-struct GeneralSettingReducer: ReducerProtocol {
+@Reducer
+struct GeneralSettingReducer {
+    @CasePathable
     enum Route {
         case logs
         case clearCache
         case removeCustomTranslations
     }
 
+    @ObservableState
     struct State: Equatable {
-        @BindingState var route: Route?
+        var route: Route?
 
         var loadingState: LoadingState = .idle
         var diskImageCacheSize = "0 KB"
@@ -47,24 +50,24 @@ struct GeneralSettingReducer: ReducerProtocol {
     @Dependency(\.databaseClient) private var databaseClient
     @Dependency(\.libraryClient) private var libraryClient
 
-    var body: some ReducerProtocol<State, Action> {
+    var body: some Reducer<State, Action> {
         BindingReducer()
+            .onChange(of: \.route) { _, newValue in
+                Reduce({ _, _ in newValue == nil ? .send(.clearSubStates) : .none })
+            }
 
         Reduce { state, action in
             switch action {
-            case .binding(\.$route):
-                return state.route == nil ? .init(value: .clearSubStates) : .none
-
             case .binding:
                 return .none
 
             case .setNavigation(let route):
                 state.route = route
-                return route == nil ? .init(value: .clearSubStates) : .none
+                return route == nil ? .send(.clearSubStates) : .none
 
             case .clearSubStates:
                 state.logsState = .init()
-                return .init(value: .logs(.teardown))
+                return .send(.logs(.teardown))
 
             case .onTranslationsFilePicked:
                 return .none
@@ -74,9 +77,9 @@ struct GeneralSettingReducer: ReducerProtocol {
 
             case .clearWebImageCache:
                 return .merge(
-                    libraryClient.clearWebImageDiskCache().fireAndForget(),
-                    databaseClient.removeImageURLs().fireAndForget(),
-                    .init(value: .calculateWebImageDiskCache)
+                    .run(operation: { _ in libraryClient.clearWebImageDiskCache() }),
+                    .run(operation: { _ in await databaseClient.removeImageURLs() }),
+                    .send(.calculateWebImageDiskCache)
                 )
 
             case .checkPasscodeSetting:
@@ -84,11 +87,13 @@ struct GeneralSettingReducer: ReducerProtocol {
                 return .none
 
             case .navigateToSystemSetting:
-                return uiApplicationClient.openSettings().fireAndForget()
+                return .run(operation: { _ in await uiApplicationClient.openSettings() })
 
             case .calculateWebImageDiskCache:
-                return libraryClient.calculateWebImageDiskCacheSize()
-                    .map(Action.calculateWebImageDiskCacheDone)
+                return .run { send in
+                    let size = await libraryClient.calculateWebImageDiskCacheSize()
+                    await send(.calculateWebImageDiskCacheDone(size))
+                }
 
             case .calculateWebImageDiskCacheDone(let bytes):
                 guard let bytes = bytes else { return .none }
@@ -102,6 +107,6 @@ struct GeneralSettingReducer: ReducerProtocol {
             }
         }
 
-        Scope(state: \.logsState, action: /Action.logs, child: LogsReducer.init)
+        Scope(state: \.logsState, action: \.logs, child: LogsReducer.init)
     }
 }

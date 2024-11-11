@@ -269,8 +269,18 @@
 		ABF45AF725F3313D00ECB568 /* SettingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABF45ADD25F3313D00ECB568 /* SettingView.swift */; };
 		ABF75F3F25A19CD200544D29 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABF75F3E25A19CD200544D29 /* User.swift */; };
 		ABF9720A26DE6E1300118887 /* GalleryDetailWithGreeting.html in Resources */ = {isa = PBXBuildFile; fileRef = ABF9720926DE6E1300118887 /* GalleryDetailWithGreeting.html */; };
+		EA0C92452C3EB42300D211F6 /* ISSUE_TEMPLATE in Resources */ = {isa = PBXBuildFile; fileRef = EA0C92432C3EB42300D211F6 /* ISSUE_TEMPLATE */; };
+		EA0C92462C3EB42300D211F6 /* workflows in Resources */ = {isa = PBXBuildFile; fileRef = EA0C92442C3EB42300D211F6 /* workflows */; };
+		EA0C92592C3EB49500D211F6 /* README.cht.md in Resources */ = {isa = PBXBuildFile; fileRef = EA0C92532C3EB49500D211F6 /* README.cht.md */; };
+		EA0C925A2C3EB49500D211F6 /* README.ko.md in Resources */ = {isa = PBXBuildFile; fileRef = EA0C92542C3EB49500D211F6 /* README.ko.md */; };
+		EA0C925B2C3EB49500D211F6 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = EA0C92552C3EB49500D211F6 /* README.md */; };
+		EA0C925C2C3EB49500D211F6 /* README.de.md in Resources */ = {isa = PBXBuildFile; fileRef = EA0C92562C3EB49500D211F6 /* README.de.md */; };
+		EA0C925D2C3EB49500D211F6 /* README.chs.md in Resources */ = {isa = PBXBuildFile; fileRef = EA0C92572C3EB49500D211F6 /* README.chs.md */; };
+		EA0C925E2C3EB49500D211F6 /* README.jpn.md in Resources */ = {isa = PBXBuildFile; fileRef = EA0C92582C3EB49500D211F6 /* README.jpn.md */; };
 		EA2E2E7F2A1F7E500038A261 /* SettingReducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA2E2E7E2A1F7E500038A261 /* SettingReducer.swift */; };
 		EA2E2E822A1FA1060038A261 /* SearchReducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA2E2E812A1FA1050038A261 /* SearchReducer.swift */; };
+		EA698C032CCDD2FB0058BC19 /* EquatableVoid.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA698C022CCDD2FB0058BC19 /* EquatableVoid.swift */; };
+		EA698C092CCDE7090058BC19 /* IdentifiableBox.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA698C082CCDE7050058BC19 /* IdentifiableBox.swift */; };
 		EAE63E2129E2A6330048C601 /* SwiftyBeaver in Frameworks */ = {isa = PBXBuildFile; productRef = EAE63E2029E2A6330048C601 /* SwiftyBeaver */; };
 /* End PBXBuildFile section */
 
@@ -579,8 +589,23 @@
 		ABF53F4725A306D200AB5918 /* EhPanda.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EhPanda.entitlements; sourceTree = "<group>"; };
 		ABF75F3E25A19CD200544D29 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
 		ABF9720926DE6E1300118887 /* GalleryDetailWithGreeting.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = GalleryDetailWithGreeting.html; sourceTree = "<group>"; };
+		EA0C92432C3EB42300D211F6 /* ISSUE_TEMPLATE */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ISSUE_TEMPLATE; path = .github/ISSUE_TEMPLATE; sourceTree = "<group>"; };
+		EA0C92442C3EB42300D211F6 /* workflows */ = {isa = PBXFileReference; lastKnownFileType = folder; name = workflows; path = .github/workflows; sourceTree = "<group>"; };
+		EA0C92482C3EB45E00D211F6 /* AltStore.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = AltStore.json; sourceTree = "<group>"; };
+		EA0C92492C3EB45E00D211F6 /* swiftgen.yml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.yaml; path = swiftgen.yml; sourceTree = "<group>"; };
+		EA0C924A2C3EB45E00D211F6 /* .gitattributes */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = .gitattributes; sourceTree = "<group>"; };
+		EA0C924B2C3EB45E00D211F6 /* .swiftlint.yml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.yaml; path = .swiftlint.yml; sourceTree = "<group>"; };
+		EA0C924C2C3EB45E00D211F6 /* .gitignore */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		EA0C92532C3EB49500D211F6 /* README.cht.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = README.cht.md; path = READMEs/README.cht.md; sourceTree = "<group>"; };
+		EA0C92542C3EB49500D211F6 /* README.ko.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = README.ko.md; path = READMEs/README.ko.md; sourceTree = "<group>"; };
+		EA0C92552C3EB49500D211F6 /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		EA0C92562C3EB49500D211F6 /* README.de.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = README.de.md; path = READMEs/README.de.md; sourceTree = "<group>"; };
+		EA0C92572C3EB49500D211F6 /* README.chs.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = README.chs.md; path = READMEs/README.chs.md; sourceTree = "<group>"; };
+		EA0C92582C3EB49500D211F6 /* README.jpn.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = README.jpn.md; path = READMEs/README.jpn.md; sourceTree = "<group>"; };
 		EA2E2E7E2A1F7E500038A261 /* SettingReducer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SettingReducer.swift; sourceTree = "<group>"; };
 		EA2E2E812A1FA1050038A261 /* SearchReducer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SearchReducer.swift; sourceTree = "<group>"; };
+		EA698C022CCDD2FB0058BC19 /* EquatableVoid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EquatableVoid.swift; sourceTree = "<group>"; };
+		EA698C082CCDE7050058BC19 /* IdentifiableBox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdentifiableBox.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -849,6 +874,8 @@
 				ABCD2F0D25976B95008E5A20 /* Parser.swift */,
 				ABC3C76D2593699A00E0C11B /* Defaults.swift */,
 				AB38A0CA25CA993D00764D64 /* ColorCodable.swift */,
+				EA698C022CCDD2FB0058BC19 /* EquatableVoid.swift */,
+				EA698C082CCDE7050058BC19 /* IdentifiableBox.swift */,
 				ABBB2670279AFA61007B6149 /* EnvironmentKeys.swift */,
 			);
 			path = Tools;
@@ -1087,6 +1114,9 @@
 				ABC3C7562593696C00E0C11B /* EhPanda */,
 				AB5BE67726B95FDD007D4A55 /* ShareExtension */,
 				AB3E9E6126D210B1008FE518 /* EhPandaTests */,
+				EA0C92472C3EB44300D211F6 /* Config */,
+				EA0C92422C3EB40100D211F6 /* GitHub */,
+				EA0C92522C3EB47F00D211F6 /* READMEs */,
 				ABC3C7552593696C00E0C11B /* Products */,
 				AB82819926B1C39B00A80CFA /* Frameworks */,
 			);
@@ -1303,6 +1333,40 @@
 				EA2E2E7E2A1F7E500038A261 /* SettingReducer.swift */,
 			);
 			path = Setting;
+			sourceTree = "<group>";
+		};
+		EA0C92422C3EB40100D211F6 /* GitHub */ = {
+			isa = PBXGroup;
+			children = (
+				EA0C92432C3EB42300D211F6 /* ISSUE_TEMPLATE */,
+				EA0C92442C3EB42300D211F6 /* workflows */,
+			);
+			name = GitHub;
+			sourceTree = "<group>";
+		};
+		EA0C92472C3EB44300D211F6 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				EA0C924A2C3EB45E00D211F6 /* .gitattributes */,
+				EA0C924C2C3EB45E00D211F6 /* .gitignore */,
+				EA0C924B2C3EB45E00D211F6 /* .swiftlint.yml */,
+				EA0C92482C3EB45E00D211F6 /* AltStore.json */,
+				EA0C92492C3EB45E00D211F6 /* swiftgen.yml */,
+			);
+			name = Config;
+			sourceTree = "<group>";
+		};
+		EA0C92522C3EB47F00D211F6 /* READMEs */ = {
+			isa = PBXGroup;
+			children = (
+				EA0C92572C3EB49500D211F6 /* README.chs.md */,
+				EA0C92532C3EB49500D211F6 /* README.cht.md */,
+				EA0C92562C3EB49500D211F6 /* README.de.md */,
+				EA0C92582C3EB49500D211F6 /* README.jpn.md */,
+				EA0C92542C3EB49500D211F6 /* README.ko.md */,
+				EA0C92552C3EB49500D211F6 /* README.md */,
+			);
+			name = READMEs;
 			sourceTree = "<group>";
 		};
 		EA2B9B042A0A89C900E7BA07 /* AccountSetting */ = {
@@ -1594,7 +1658,7 @@
 				AB17573E27678B3400FD64E2 /* XCRemoteSwiftPackageReference "UIImageColors" */,
 				ABD49D5B277C6C9D003D1A07 /* XCRemoteSwiftPackageReference "SFSafeSymbols" */,
 				AB86AC0E27831AD100E61E6A /* XCRemoteSwiftPackageReference "swift-composable-architecture" */,
-				ABBB2634278FB888007B6149 /* XCRemoteSwiftPackageReference "swiftui-navigation" */,
+				ABBB2634278FB888007B6149 /* XCRemoteSwiftPackageReference "swift-navigation" */,
 				AB26F59727ACDB4200AB3468 /* XCRemoteSwiftPackageReference "FilePicker" */,
 				AB1FA94727C62BC80063EF55 /* XCRemoteSwiftPackageReference "SwiftCommonMark" */,
 				AB2EB99D280251D600011A8A /* XCRemoteSwiftPackageReference "TTProgressHUD" */,
@@ -1630,16 +1694,21 @@
 				AB90276E291F548700697256 /* AppIcon_NotMyPresident_iPad.png in Resources */,
 				AB90276D291F548700697256 /* AppIcon_NotMyPresident_iPad_Pro@2x.png in Resources */,
 				AB0CFB7A27BAB9D0004BD372 /* AppIcon_Default@2x.png in Resources */,
+				EA0C92592C3EB49500D211F6 /* README.cht.md in Resources */,
 				AB0CFB7527BAB9D0004BD372 /* AppIcon_Default_iPad@2x.png in Resources */,
 				AB0CFB9227BBD323004BD372 /* AppIcon_Ukiyoe_iPad@2x.png in Resources */,
 				ABC3C7852593699B00E0C11B /* Assets.xcassets in Resources */,
 				AB0CFB7B27BAB9D0004BD372 /* AppIcon_Default_iPad.png in Resources */,
 				AB90276C291F548700697256 /* AppIcon_NotMyPresident_iPad@2x.png in Resources */,
+				EA0C925D2C3EB49500D211F6 /* README.chs.md in Resources */,
 				AB0CFB9527BBD323004BD372 /* AppIcon_Ukiyoe_iPad.png in Resources */,
+				EA0C925C2C3EB49500D211F6 /* README.de.md in Resources */,
 				ABE9012427F722D100F3651D /* AppIcon_StandWithUkraine2022@3x.png in Resources */,
 				AB90276B291F548700697256 /* AppIcon_NotMyPresident@3x.png in Resources */,
+				EA0C92452C3EB42300D211F6 /* ISSUE_TEMPLATE in Resources */,
 				AB0CFB8827BBD2D7004BD372 /* AppIcon_Developer_iPad@2x.png in Resources */,
 				ABE9012227F722D100F3651D /* AppIcon_StandWithUkraine2022@2x.png in Resources */,
+				EA0C925B2C3EB49500D211F6 /* README.md in Resources */,
 				AB0CFB7427BAB9D0004BD372 /* AppIcon_Default@3x.png in Resources */,
 				AB7E6B3025D24FE00035CC68 /* InfoPlist.strings in Resources */,
 				ABA9A6BC28EC786100EE28DE /* swiftgen.yml in Resources */,
@@ -1647,11 +1716,14 @@
 				AB0CFB8927BBD2D7004BD372 /* AppIcon_Developer@2x.png in Resources */,
 				ABEE0AFA2595C6F800C997AE /* Localizable.strings in Resources */,
 				AB90276F291F548700697256 /* AppIcon_NotMyPresident@2x.png in Resources */,
+				EA0C92462C3EB42300D211F6 /* workflows in Resources */,
+				EA0C925A2C3EB49500D211F6 /* README.ko.md in Resources */,
 				ABD5FDD4263D05110021A4C6 /* .swiftlint.yml in Resources */,
 				ABE9012527F722D100F3651D /* AppIcon_StandWithUkraine2022_iPad_Pro@2x.png in Resources */,
 				ABE9012327F722D100F3651D /* AppIcon_StandWithUkraine2022_iPad.png in Resources */,
 				AB0CFB7827BAB9D0004BD372 /* AppIcon_Default_iPad_Pro@2x.png in Resources */,
 				AB0CFB8B27BBD2D7004BD372 /* AppIcon_Developer_iPad_Pro@2x.png in Resources */,
+				EA0C925E2C3EB49500D211F6 /* README.jpn.md in Resources */,
 				AB0CFB8A27BBD2D7004BD372 /* AppIcon_Developer_iPad.png in Resources */,
 				ABE9012627F722D100F3651D /* AppIcon_StandWithUkraine2022_iPad@2x.png in Resources */,
 				AB0CFB9427BBD323004BD372 /* AppIcon_Ukiyoe_iPad_Pro@2x.png in Resources */,
@@ -1794,6 +1866,7 @@
 				ABF45AF625F3313D00ECB568 /* AppearanceSettingView.swift in Sources */,
 				AB7BF2CE27AA3E58001865A3 /* AppUtil.swift in Sources */,
 				AB86AC1A2785C2B300E61E6A /* HomeReducer.swift in Sources */,
+				EA698C032CCDD2FB0058BC19 /* EquatableVoid.swift in Sources */,
 				AB7BF2D427AA3F12001865A3 /* CookieUtil.swift in Sources */,
 				AB7BF30A27ABDFF1001865A3 /* CoreDataMigrationStep.swift in Sources */,
 				AB69CB8226B3DAF400699359 /* ControlPanel.swift in Sources */,
@@ -1877,6 +1950,7 @@
 				AB86AC0A2782FAFA00E61E6A /* AppearanceSettingReducer.swift in Sources */,
 				AB7BF2C427A9683F001865A3 /* GalleryArchive.swift in Sources */,
 				ABF45AF525F3313D00ECB568 /* ReadingSettingView.swift in Sources */,
+				EA698C092CCDE7090058BC19 /* IdentifiableBox.swift in Sources */,
 				AB0CFBD727C3B2D0004BD372 /* TagDetailView.swift in Sources */,
 				AB38A0CB25CA993D00764D64 /* ColorCodable.swift in Sources */,
 				ABC732C127B8962000D47DA9 /* LiveTextHandler.swift in Sources */,
@@ -2012,12 +2086,13 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 150;
+				CURRENT_PROJECT_VERSION = 153;
 				DEVELOPMENT_TEAM = 9SKQ7QTZ74;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ShareExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ShareExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -2039,12 +2114,13 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 150;
+				CURRENT_PROJECT_VERSION = 153;
 				DEVELOPMENT_TEAM = 9SKQ7QTZ74;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ShareExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ShareExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -2189,12 +2265,12 @@
 				CODE_SIGN_ENTITLEMENTS = EhPanda/EhPanda.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 150;
+				CURRENT_PROJECT_VERSION = 153;
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 9SKQ7QTZ74;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = EhPanda/App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -2218,12 +2294,12 @@
 				CODE_SIGN_ENTITLEMENTS = EhPanda/EhPanda.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 150;
+				CURRENT_PROJECT_VERSION = 153;
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 9SKQ7QTZ74;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = EhPanda/App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -2244,9 +2320,10 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 150;
+				CURRENT_PROJECT_VERSION = 153;
 				DEVELOPMENT_TEAM = 9SKQ7QTZ74;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -2270,9 +2347,10 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 150;
+				CURRENT_PROJECT_VERSION = 153;
 				DEVELOPMENT_TEAM = 9SKQ7QTZ74;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -2334,7 +2412,7 @@
 /* Begin XCRemoteSwiftPackageReference section */
 		AB17573B27675B1E00FD64E2 /* XCRemoteSwiftPackageReference "Colorful" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/Co2333/Colorful.git";
+			repositoryURL = "https://github.com/Co2333/Colorful";
 			requirement = {
 				kind = exactVersion;
 				version = 1.0.1;
@@ -2342,7 +2420,7 @@
 		};
 		AB17573E27678B3400FD64E2 /* XCRemoteSwiftPackageReference "UIImageColors" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/jathu/UIImageColors.git";
+			repositoryURL = "https://github.com/jathu/UIImageColors";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 2.0.0;
@@ -2350,7 +2428,7 @@
 		};
 		AB1FA94727C62BC80063EF55 /* XCRemoteSwiftPackageReference "SwiftCommonMark" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/gonzalezreal/SwiftCommonMark.git";
+			repositoryURL = "https://github.com/gonzalezreal/SwiftCommonMark";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.0.0;
@@ -2358,7 +2436,7 @@
 		};
 		AB26F59727ACDB4200AB3468 /* XCRemoteSwiftPackageReference "FilePicker" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/markrenaud/FilePicker.git";
+			repositoryURL = "https://github.com/markrenaud/FilePicker";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.0.0;
@@ -2366,7 +2444,7 @@
 		};
 		AB2EB99D280251D600011A8A /* XCRemoteSwiftPackageReference "TTProgressHUD" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/EhPanda-Team/TTProgressHUD.git";
+			repositoryURL = "https://github.com/EhPanda-Team/TTProgressHUD";
 			requirement = {
 				branch = custom;
 				kind = branch;
@@ -2374,7 +2452,7 @@
 		};
 		AB2EB9A0280251F600011A8A /* XCRemoteSwiftPackageReference "AlertKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/EhPanda-Team/AlertKit.git";
+			repositoryURL = "https://github.com/EhPanda-Team/AlertKit";
 			requirement = {
 				branch = custom;
 				kind = branch;
@@ -2382,7 +2460,7 @@
 		};
 		AB2EB9A32802521700011A8A /* XCRemoteSwiftPackageReference "DeprecatedAPI" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/EhPanda-Team/DeprecatedAPI.git";
+			repositoryURL = "https://github.com/EhPanda-Team/DeprecatedAPI";
 			requirement = {
 				branch = main;
 				kind = branch;
@@ -2390,7 +2468,7 @@
 		};
 		AB60D0E7274C7ECE00F899AB /* XCRemoteSwiftPackageReference "WaterfallGrid" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/paololeonardi/WaterfallGrid.git";
+			repositoryURL = "https://github.com/paololeonardi/WaterfallGrid";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.0.0;
@@ -2398,7 +2476,7 @@
 		};
 		AB65059E26B0027800F91E9D /* XCRemoteSwiftPackageReference "SwiftUIPager" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/fermoya/SwiftUIPager.git";
+			repositoryURL = "https://github.com/fermoya/SwiftUIPager";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 2.0.0;
@@ -2406,31 +2484,31 @@
 		};
 		AB86AC0E27831AD100E61E6A /* XCRemoteSwiftPackageReference "swift-composable-architecture" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/pointfreeco/swift-composable-architecture.git";
+			repositoryURL = "https://github.com/pointfreeco/swift-composable-architecture";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.0.0;
+				minimumVersion = 1.15.2;
 			};
 		};
 		ABAC82FC26BC4866009F5026 /* XCRemoteSwiftPackageReference "SwiftyOpenCC" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/ddddxxx/SwiftyOpenCC.git";
+			repositoryURL = "https://github.com/ddddxxx/SwiftyOpenCC";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = "2.0.0-beta";
 			};
 		};
-		ABBB2634278FB888007B6149 /* XCRemoteSwiftPackageReference "swiftui-navigation" */ = {
+		ABBB2634278FB888007B6149 /* XCRemoteSwiftPackageReference "swift-navigation" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/pointfreeco/swiftui-navigation.git";
+			repositoryURL = "https://github.com/pointfreeco/swift-navigation";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.0.0;
+				minimumVersion = 2.0.0;
 			};
 		};
 		ABC4A0772751B40E00968A4F /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/onevcat/Kingfisher.git";
+			repositoryURL = "https://github.com/onevcat/Kingfisher";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 7.0.0;
@@ -2438,7 +2516,7 @@
 		};
 		ABD49D5B277C6C9D003D1A07 /* XCRemoteSwiftPackageReference "SFSafeSymbols" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/SFSafeSymbols/SFSafeSymbols.git";
+			repositoryURL = "https://github.com/SFSafeSymbols/SFSafeSymbols";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 4.0.0;
@@ -2446,7 +2524,7 @@
 		};
 		ABD7005726B1C31500DC59C9 /* XCRemoteSwiftPackageReference "Kanna" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/tid-kijyun/Kanna.git";
+			repositoryURL = "https://github.com/tid-kijyun/Kanna";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 5.0.0;
@@ -2454,7 +2532,7 @@
 		};
 		EAE63E1F29E2A6330048C601 /* XCRemoteSwiftPackageReference "SwiftyBeaver" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/SwiftyBeaver/SwiftyBeaver.git";
+			repositoryURL = "https://github.com/SwiftyBeaver/SwiftyBeaver";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 2.0.0;
@@ -2520,7 +2598,7 @@
 		};
 		ABBB2635278FB888007B6149 /* SwiftUINavigation */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = ABBB2634278FB888007B6149 /* XCRemoteSwiftPackageReference "swiftui-navigation" */;
+			package = ABBB2634278FB888007B6149 /* XCRemoteSwiftPackageReference "swift-navigation" */;
 			productName = SwiftUINavigation;
 		};
 		ABC4A0782751B40E00968A4F /* Kingfisher */ = {

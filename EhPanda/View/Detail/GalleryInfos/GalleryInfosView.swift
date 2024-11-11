@@ -9,14 +9,12 @@ import SwiftUI
 import ComposableArchitecture
 
 struct GalleryInfosView: View {
-    private let store: StoreOf<GalleryInfosReducer>
-    @ObservedObject private var viewStore: ViewStoreOf<GalleryInfosReducer>
+    @Bindable private var store: StoreOf<GalleryInfosReducer>
     private let gallery: Gallery
     private let galleryDetail: GalleryDetail
 
     init(store: StoreOf<GalleryInfosReducer>, gallery: Gallery, galleryDetail: GalleryDetail) {
         self.store = store
-        viewStore = ViewStore(store)
         self.gallery = gallery
         self.galleryDetail = galleryDetail
     }
@@ -106,7 +104,7 @@ struct GalleryInfosView: View {
                     Spacer()
                     Button {
                         if let text = info.value {
-                            viewStore.send(.copyText(text))
+                            store.send(.copyText(text))
                         }
                     } label: {
                         Text(info.value ?? L10n.Localizable.GalleryInfosView.Value.none)
@@ -117,9 +115,9 @@ struct GalleryInfosView: View {
             }
         }
         .progressHUD(
-            config: viewStore.hudConfig,
-            unwrapping: viewStore.binding(\.$route),
-            case: /GalleryInfosReducer.Route.hud
+            config: store.hudConfig,
+            unwrapping: $store.route,
+            case: \.hud
         )
         .navigationTitle(L10n.Localizable.GalleryInfosView.Title.galleryInfos)
     }
@@ -135,10 +133,7 @@ struct GalleryInfosView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationView {
             GalleryInfosView(
-                store: .init(
-                    initialState: .init(),
-                    reducer: GalleryInfosReducer()
-                ),
+                store: .init(initialState: .init(), reducer: GalleryInfosReducer.init),
                 gallery: .preview,
                 galleryDetail: .preview
             )

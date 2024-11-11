@@ -9,15 +9,18 @@ import SwiftUI
 import IdentifiedCollections
 import ComposableArchitecture
 
-struct FavoritesReducer: ReducerProtocol {
+@Reducer
+struct FavoritesReducer {
+    @CasePathable
     enum Route: Equatable {
-        case quickSearch
+        case quickSearch(EquatableVoid = .init())
         case detail(String)
     }
 
+    @ObservableState
     struct State: Equatable {
-        @BindingState var route: Route?
-        @BindingState var keyword = ""
+        var route: Route?
+        var keyword = ""
 
         var index = -1
         var sortOrder: FavoritesSortOrder?
@@ -40,11 +43,11 @@ struct FavoritesReducer: ReducerProtocol {
             rawFooterLoadingState[index]
         }
 
-        @Heap var detailState: DetailReducer.State!
+        var detailState: Heap<DetailReducer.State?>
         var quickSearchState = QuickSearchReducer.State()
 
         init() {
-            _detailState = .init(.init())
+            detailState = .init(.init())
         }
 
         mutating func insertGalleries(index: Int, galleries: [Gallery]) {
@@ -75,29 +78,29 @@ struct FavoritesReducer: ReducerProtocol {
     @Dependency(\.databaseClient) private var databaseClient
     @Dependency(\.hapticsClient) private var hapticsClient
 
-    var body: some ReducerProtocol<State, Action> {
+    var body: some Reducer<State, Action> {
         BindingReducer()
+            .onChange(of: \.route) { _, newValue in
+                Reduce({ _, _ in newValue == nil ? .send(.clearSubStates) : .none })
+            }
 
         Reduce { state, action in
             switch action {
-            case .binding(\.$route):
-                return state.route == nil ? .init(value: .clearSubStates) : .none
-
             case .binding:
                 return .none
 
             case .setNavigation(let route):
                 state.route = route
-                return route == nil ? .init(value: .clearSubStates) : .none
+                return route == nil ? .send(.clearSubStates) : .none
 
             case .setFavoritesIndex(let index):
                 state.index = index
                 guard state.galleries?.isEmpty != false else { return .none }
-                return .init(value: Action.fetchGalleries())
+                return .send(.fetchGalleries())
 
             case .clearSubStates:
-                state.detailState = .init()
-                return .init(value: .detail(.teardown))
+                state.detailState.wrappedValue = .init()
+                return .send(.detail(.teardown))
 
             case .onNotLoginViewButtonTapped:
                 return .none
@@ -113,10 +116,13 @@ struct FavoritesReducer: ReducerProtocol {
                 } else {
                     state.rawPageNumber[state.index]?.resetPages()
                 }
-                return FavoritesGalleriesRequest(
-                    favIndex: state.index, keyword: state.keyword, sortOrder: sortOrder
-                )
-                .effect.map { [index = state.index] result in Action.fetchGalleriesDone(index, result) }
+                return .run { [state] send in
+                    let response = await FavoritesGalleriesRequest(
+                        favIndex: state.index, keyword: state.keyword, sortOrder: sortOrder
+                    )
+                    .response()
+                    await send(.fetchGalleriesDone(state.index, response))
+                }
 
             case .fetchGalleriesDone(let targetFavIndex, let result):
                 state.rawLoadingState[targetFavIndex] = .idle
@@ -125,12 +131,12 @@ struct FavoritesReducer: ReducerProtocol {
                     guard !galleries.isEmpty else {
                         state.rawLoadingState[targetFavIndex] = .failed(.notFound)
                         guard pageNumber.hasNextPage() else { return .none }
-                        return .init(value: .fetchMoreGalleries)
+                        return .send(.fetchMoreGalleries)
                     }
                     state.rawPageNumber[targetFavIndex] = pageNumber
                     state.rawGalleries[targetFavIndex] = galleries
                     state.sortOrder = sortOrder
-                    return databaseClient.cacheGalleries(galleries).fireAndForget()
+                    return .run(operation: { _ in await databaseClient.cacheGalleries(galleries) })
                 case .failure(let error):
                     state.rawLoadingState[targetFavIndex] = .failed(error)
                 }
@@ -144,13 +150,16 @@ struct FavoritesReducer: ReducerProtocol {
                       let lastItemTimestamp = pageNumber.lastItemTimestamp
                 else { return .none }
                 state.rawFooterLoadingState[state.index] = .loading
-                return MoreFavoritesGalleriesRequest(
-                    favIndex: state.index,
-                    lastID: lastID,
-                    lastTimestamp: lastItemTimestamp,
-                    keyword: state.keyword
-                )
-                .effect.map { [index = state.index] result in Action.fetchMoreGalleriesDone(index, result) }
+                return .run { [state] send in
+                    let response = await MoreFavoritesGalleriesRequest(
+                        favIndex: state.index,
+                        lastID: lastID,
+                        lastTimestamp: lastItemTimestamp,
+                        keyword: state.keyword
+                    )
+                    .response()
+                    await send(.fetchMoreGalleriesDone(state.index, response))
+                }
 
             case .fetchMoreGalleriesDone(let targetFavIndex, let result):
                 state.rawFooterLoadingState[targetFavIndex] = .idle
@@ -160,11 +169,11 @@ struct FavoritesReducer: ReducerProtocol {
                     state.insertGalleries(index: targetFavIndex, galleries: galleries)
                     state.sortOrder = sortOrder
 
-                    var effects: [EffectTask<Action>] = [
-                        databaseClient.cacheGalleries(galleries).fireAndForget()
+                    var effects: [Effect<Action>] = [
+                        .run(operation: { _ in await databaseClient.cacheGalleries(galleries) })
                     ]
                     if galleries.isEmpty, pageNumber.hasNextPage() {
-                        effects.append(.init(value: .fetchMoreGalleries))
+                        effects.append(.send(.fetchMoreGalleries))
                     } else if !galleries.isEmpty {
                         state.rawLoadingState[targetFavIndex] = .idle
                     }
@@ -184,11 +193,11 @@ struct FavoritesReducer: ReducerProtocol {
         }
         .haptics(
             unwrapping: \.route,
-            case: /Route.quickSearch,
+            case: \.quickSearch,
             hapticsClient: hapticsClient
         )
 
-        Scope(state: \.detailState, action: /Action.detail, child: DetailReducer.init)
-        Scope(state: \.quickSearchState, action: /Action.quickSearch, child: QuickSearchReducer.init)
+        Scope(state: \.detailState.wrappedValue!, action: \.detail, child: DetailReducer.init)
+        Scope(state: \.quickSearchState, action: \.quickSearch, child: QuickSearchReducer.init)
     }
 }

@@ -11,7 +11,7 @@ import ComposableArchitecture
 
 struct AuthorizationClient {
     let passcodeNotSet: () -> Bool
-    let localAuthroize: (String) -> EffectTask<Bool>
+    let localAuthroize: (String) async -> Bool
 }
 
 extension AuthorizationClient {
@@ -21,21 +21,18 @@ extension AuthorizationClient {
             return !LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
         },
         localAuthroize: { reason in
-            Future { promise in
+            await withCheckedContinuation { continuation in
                 let context = LAContext()
                 var error: NSError?
 
                 if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
                     context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { isSuccess, _ in
-                        promise(.success(isSuccess))
+                        continuation.resume(returning: isSuccess)
                     }
                 } else {
-                    promise(.success(false))
+                    continuation.resume(returning: false)
                 }
             }
-            .eraseToAnyPublisher()
-            .receive(on: DispatchQueue.main)
-            .eraseToEffect()
         }
     )
 }
@@ -58,11 +55,13 @@ extension DependencyValues {
 extension AuthorizationClient {
     static let noop: Self = .init(
         passcodeNotSet: { false },
-        localAuthroize: { _ in .none }
+        localAuthroize: { _ in false }
     )
 
+    static func placeholder<Result>() -> Result { fatalError() }
+
     static let unimplemented: Self = .init(
-        passcodeNotSet: XCTestDynamicOverlay.unimplemented("\(Self.self).passcodeNotSet"),
-        localAuthroize: XCTestDynamicOverlay.unimplemented("\(Self.self).localAuthroize")
+        passcodeNotSet: IssueReporting.unimplemented(placeholder: placeholder()),
+        localAuthroize: IssueReporting.unimplemented(placeholder: placeholder())
     )
 }

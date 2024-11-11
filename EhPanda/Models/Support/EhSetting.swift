@@ -8,7 +8,7 @@
 // MARK: EhSetting
 struct EhSetting: Equatable {
     // swiftlint:disable line_length
-    static let empty: Self = .init(ehProfiles: [.empty], isCapableOfCreatingNewProfile: true, capableLoadThroughHathSetting: .anyClient, capableImageResolution: .auto, capableSearchResultCount: .fifty, capableThumbnailConfigSize: .normal, capableThumbnailConfigRowCount: .forty, loadThroughHathSetting: .anyClient, browsingCountry: .autoDetect, literalBrowsingCountry: "", imageResolution: .auto, imageSizeWidth: 0, imageSizeHeight: 0, galleryName: .default, archiverBehavior: .autoSelectOriginalAutoStart, displayMode: .compact, showSearchRangeIndicator: true, disabledCategories: Array(repeating: false, count: 10), favoriteCategories: Array(repeating: "", count: 10), favoritesSortOrder: .favoritedTime, ratingsColor: "", tagFilteringThreshold: 0, tagWatchingThreshold: 0, showFilteredRemovalCount: true, excludedLanguages: Array(repeating: false, count: 50), excludedUploaders: "", searchResultCount: .fifty, thumbnailLoadTiming: .onPageLoad, thumbnailConfigSize: .normal, thumbnailConfigRows: .ten, thumbnailScaleFactor: 0, viewportVirtualWidth: 0, commentsSortOrder: .recent, commentVotesShowTiming: .always, tagsSortOrder: .alphabetical, galleryShowPageNumbers: true)
+    static let empty: Self = .init(ehProfiles: [.empty], isCapableOfCreatingNewProfile: true, capableLoadThroughHathSetting: .anyClient, capableImageResolution: .auto, capableSearchResultCount: .fifty, capableThumbnailConfigRowCount: .forty, capableThumbnailConfigSizes: [], loadThroughHathSetting: .anyClient, browsingCountry: .autoDetect, literalBrowsingCountry: "", imageResolution: .auto, imageSizeWidth: 0, imageSizeHeight: 0, galleryName: .default, archiverBehavior: .autoSelectOriginalAutoStart, displayMode: .compact, showSearchRangeIndicator: true, enableGalleryThumbnailSelector: false, disabledCategories: Array(repeating: false, count: 10), favoriteCategories: Array(repeating: "", count: 10), favoritesSortOrder: .favoritedTime, ratingsColor: "", tagFilteringThreshold: 0, tagWatchingThreshold: 0, showFilteredRemovalCount: true, excludedLanguages: Array(repeating: false, count: 50), excludedUploaders: "", searchResultCount: .fifty, thumbnailLoadTiming: .onPageLoad, thumbnailConfigSize: .normal, thumbnailConfigRows: .ten, coverScaleFactor: 0, viewportVirtualWidth: 0, commentsSortOrder: .recent, commentVotesShowTiming: .always, tagsSortOrder: .alphabetical, galleryPageNumbering: .none)
     // swiftlint:enable line_length
 
     static let categoryNames = Category.allFiltersCases.map(\.rawValue).map { value in
@@ -35,8 +35,8 @@ struct EhSetting: Equatable {
     let capableLoadThroughHathSetting: LoadThroughHathSetting
     let capableImageResolution: ImageResolution
     let capableSearchResultCount: SearchResultCount
-    let capableThumbnailConfigSize: ThumbnailSize
     let capableThumbnailConfigRowCount: ThumbnailRowCount
+    let capableThumbnailConfigSizes: [ThumbnailSize]
 
     var capableLoadThroughHathSettings: [LoadThroughHathSetting] {
         LoadThroughHathSetting.allCases.filter { setting in
@@ -51,11 +51,6 @@ struct EhSetting: Equatable {
     var capableSearchResultCounts: [SearchResultCount] {
         SearchResultCount.allCases.filter { count in
             count <= capableSearchResultCount
-        }
-    }
-    var capableThumbnailConfigSizes: [ThumbnailSize] {
-        ThumbnailSize.allCases.filter { size in
-            size <= capableThumbnailConfigSize
         }
     }
     var capableThumbnailConfigRowCounts: [ThumbnailRowCount] {
@@ -77,6 +72,7 @@ struct EhSetting: Equatable {
     var archiverBehavior: ArchiverBehavior
     var displayMode: DisplayMode
     var showSearchRangeIndicator: Bool
+    var enableGalleryThumbnailSelector: Bool
     var disabledCategories: [Bool]
     var favoriteCategories: [String]
     var favoritesSortOrder: FavoritesSortOrder
@@ -90,12 +86,12 @@ struct EhSetting: Equatable {
     var thumbnailLoadTiming: ThumbnailLoadTiming
     var thumbnailConfigSize: ThumbnailSize
     var thumbnailConfigRows: ThumbnailRowCount
-    var thumbnailScaleFactor: Float
+    var coverScaleFactor: Float
     var viewportVirtualWidth: Float
     var commentsSortOrder: CommentsSortOrder
     var commentVotesShowTiming: CommentVotesShowTiming
     var tagsSortOrder: TagsSortOrder
-    var galleryShowPageNumbers: Bool
+    var galleryPageNumbering: GalleryPageNumbering
     var useOriginalImages: Bool?
     var useMultiplePageViewer: Bool?
     var multiplePageViewerStyle: MultiplePageViewerStyle?
@@ -175,6 +171,7 @@ extension EhSetting {
     enum ImageResolution: Int, CaseIterable, Identifiable, Comparable {
         case auto
         case x780
+        /// Deprecated
         case x980
         case x1280
         case x1600
@@ -389,7 +386,10 @@ extension EhSetting.ThumbnailLoadTiming {
 // MARK: ThumbnailSize
 extension EhSetting {
     enum ThumbnailSize: Int, CaseIterable, Identifiable, Comparable {
+        case auto
+        case small
         case normal
+        /// Deprecated
         case large
     }
 }
@@ -405,6 +405,10 @@ extension EhSetting.ThumbnailSize {
             return L10n.Localizable.Enum.EhSetting.ThumbnailSize.Value.normal
         case .large:
             return L10n.Localizable.Enum.EhSetting.ThumbnailSize.Value.large
+        case .small:
+            return L10n.Localizable.Enum.EhSetting.ThumbnailSize.Value.small
+        case .auto:
+            return L10n.Localizable.Enum.EhSetting.ThumbnailSize.Value.auto
         }
     }
 }
@@ -426,14 +430,10 @@ extension EhSetting.ThumbnailRowCount {
 
     var value: String {
         switch self {
-        case .four:
-            return "4"
-        case .ten:
-            return "10"
-        case .twenty:
-            return "20"
-        case .forty:
-            return "40"
+        case .four: "4"
+        case .ten: "8"
+        case .twenty: "20"
+        case .forty: "40"
         }
     }
 }
@@ -520,6 +520,26 @@ extension EhSetting.MultiplePageViewerStyle {
             return L10n.Localizable.Enum.EhSetting.MultiplePageViewerStyle.Value.alignCenterScaleIfOverWidth
         case .alignCenterAlwaysScale:
             return L10n.Localizable.Enum.EhSetting.MultiplePageViewerStyle.Value.alignCenterAlwaysScale
+        }
+    }
+}
+
+// MARK: GalleryPageNumbering
+extension EhSetting {
+    enum GalleryPageNumbering: Int, CaseIterable, Identifiable {
+        case none
+        case pageNumberOnly
+        case pageNumberAndName
+    }
+}
+extension EhSetting.GalleryPageNumbering {
+    var id: Int { rawValue }
+
+    var value: String {
+        switch self {
+        case .none: L10n.Localizable.Enum.EhSetting.GalleryPageNumbering.Value.none
+        case .pageNumberOnly: L10n.Localizable.Enum.EhSetting.GalleryPageNumbering.Value.pageNumberOnly
+        case .pageNumberAndName: L10n.Localizable.Enum.EhSetting.GalleryPageNumbering.Value.pageNumberAndName
         }
     }
 }

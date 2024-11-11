@@ -9,24 +9,22 @@ import SwiftUI
 import ComposableArchitecture
 
 struct FiltersView: View {
-    private let store: StoreOf<FiltersReducer>
-    @ObservedObject private var viewStore: ViewStoreOf<FiltersReducer>
+    @Bindable private var store: StoreOf<FiltersReducer>
 
     @FocusState private var focusedBound: FiltersReducer.FocusedBound?
 
     init(store: StoreOf<FiltersReducer>) {
         self.store = store
-        viewStore = ViewStore(store)
     }
 
     private var filter: Binding<Filter> {
-        switch viewStore.filterRange {
+        switch store.filterRange {
         case .search:
-            return viewStore.binding(\.$searchFilter)
+            return $store.searchFilter
         case .global:
-            return viewStore.binding(\.$globalFilter)
+            return $store.globalFilter
         case .watched:
-            return viewStore.binding(\.$watchedFilter)
+            return $store.watchedFilter
         }
     }
 
@@ -35,19 +33,19 @@ struct FiltersView: View {
         NavigationView {
             Form {
                 BasicSection(
-                    route: viewStore.binding(\.$route),
-                    filter: filter, filterRange: viewStore.binding(\.$filterRange),
-                    resetFiltersAction: { viewStore.send(.resetFilters) },
-                    resetFiltersDialogAction: { viewStore.send(.setNavigation(.resetFilters)) }
+                    route: $store.route,
+                    filter: filter, filterRange: $store.filterRange,
+                    resetFiltersAction: { store.send(.resetFilters) },
+                    resetFiltersDialogAction: { store.send(.setNavigation(.resetFilters)) }
                 )
                 AdvancedSection(
                     filter: filter, focusedBound: $focusedBound,
-                    submitAction: { viewStore.send(.onTextFieldSubmitted) }
+                    submitAction: { store.send(.onTextFieldSubmitted) }
                 )
             }
-            .synchronize(viewStore.binding(\.$focusedBound), $focusedBound)
+            .synchronize($store.focusedBound, $focusedBound)
             .navigationTitle(L10n.Localizable.FiltersView.Title.filters)
-            .onAppear { viewStore.send(.fetchFilters) }
+            .onAppear { store.send(.fetchFilters) }
         }
     }
 }
@@ -89,7 +87,8 @@ private struct BasicSection: View {
             }
             .confirmationDialog(
                 message: L10n.Localizable.ConfirmationDialog.Title.reset,
-                unwrapping: $route, case: /FiltersReducer.Route.resetFilters
+                unwrapping: $route,
+                case: \.resetFilters
             ) {
                 Button(
                     L10n.Localizable.ConfirmationDialog.Button.reset,
@@ -239,11 +238,6 @@ extension FilterRange {
 
 struct FiltersView_Previews: PreviewProvider {
     static var previews: some View {
-        FiltersView(
-            store: .init(
-                initialState: .init(),
-                reducer: FiltersReducer()
-            )
-        )
+        FiltersView(store: .init(initialState: .init(), reducer: FiltersReducer.init))
     }
 }

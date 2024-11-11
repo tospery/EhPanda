@@ -9,14 +9,15 @@ import SwiftUI
 import ComposableArchitecture
 
 struct EhSettingView: View {
-    private let store: StoreOf<EhSettingReducer>
-    @ObservedObject private var viewStore: ViewStoreOf<EhSettingReducer>
+    @Bindable private var store: StoreOf<EhSettingReducer>
     private let bypassesSNIFiltering: Bool
     private let blurRadius: Double
 
+    // Should make it an Environment value.
+    private var galleryHost: GalleryHost { AppUtil.galleryHost }
+
     init(store: StoreOf<EhSettingReducer>, bypassesSNIFiltering: Bool, blurRadius: Double) {
         self.store = store
-        viewStore = ViewStore(store)
         self.bypassesSNIFiltering = bypassesSNIFiltering
         self.blurRadius = blurRadius
     }
@@ -25,56 +26,56 @@ struct EhSettingView: View {
     var body: some View {
         ZStack {
             // workaround: Stay if-else approach
-            if viewStore.loadingState == .loading || viewStore.submittingState == .loading {
+            if store.loadingState == .loading || store.submittingState == .loading {
                 LoadingView()
                     .tint(nil)
-            } else if case .failed(let error) = viewStore.loadingState {
-                ErrorView(error: error, action: { viewStore.send(.fetchEhSetting) })
+            } else if case .failed(let error) = store.loadingState {
+                ErrorView(error: error, action: { store.send(.fetchEhSetting) })
                     .tint(nil)
             }
             // Using `Binding.init` will crash the app
-            else if let ehSetting = Binding(unwrapping: viewStore.binding(\.$ehSetting)),
-                    let ehProfile = Binding(unwrapping: viewStore.binding(\.$ehProfile))
+            else if let ehSetting = Binding(unwrapping: $store.ehSetting),
+                    let ehProfile = Binding(unwrapping: $store.ehProfile)
             {
                 form(ehSetting: ehSetting, ehProfile: ehProfile)
                     .transition(.opacity.animation(.default))
             }
         }
         .onAppear {
-            if viewStore.ehSetting == nil {
-                viewStore.send(.fetchEhSetting)
+            if store.ehSetting == nil {
+                store.send(.fetchEhSetting)
             }
         }
         .onDisappear {
-            if let profileSet = viewStore.ehSetting?.ehpandaProfile?.value {
-                viewStore.send(.setDefaultProfile(profileSet))
+            if let profileSet = store.ehSetting?.ehpandaProfile?.value {
+                store.send(.setDefaultProfile(profileSet))
             }
         }
-        .sheet(unwrapping: viewStore.binding(\.$route), case: /EhSettingReducer.Route.webView) { route in
-            WebView(url: route.wrappedValue)
+        .sheet(item: $store.route.sending(\.setNavigation).webView, id: \.absoluteString) { url in
+            WebView(url: url)
                 .autoBlur(radius: blurRadius)
         }
         .toolbar(content: toolbar)
-        .navigationTitle(L10n.Localizable.EhSettingView.Title.hostSettings(AppUtil.galleryHost.rawValue))
+        .navigationTitle(L10n.Localizable.EhSettingView.Title.hostSettings(galleryHost.rawValue))
     }
     // MARK: Form
     private func form(ehSetting: Binding<EhSetting>, ehProfile: Binding<EhProfile>) -> some View {
         Form {
             Group {
                 EhProfileSection(
-                    route: viewStore.binding(\.$route),
+                    route: $store.route,
                     ehSetting: ehSetting,
                     ehProfile: ehProfile,
-                    editingProfileName: viewStore.binding(\.$editingProfileName),
+                    editingProfileName: $store.editingProfileName,
                     deleteAction: {
-                        if let value = viewStore.ehProfile?.value {
+                        if let value = store.ehProfile?.value {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                viewStore.send(.performAction(.delete, nil, value))
+                                store.send(.performAction(action: .delete, name: nil, set: value))
                             }
                         }
                     },
-                    deleteDialogAction: { viewStore.send(.setNavigation(.deleteProfile)) },
-                    performEhProfileAction: { viewStore.send(.performAction($0, $1, $2)) }
+                    deleteDialogAction: { store.send(.setNavigation(.deleteProfile)) },
+                    performEhProfileAction: { store.send(.performAction(action: $0, name: $1, set: $2)) }
                 )
 
                 ImageLoadSettingsSection(ehSetting: ehSetting)
@@ -82,25 +83,25 @@ struct EhSettingView: View {
                 GalleryNameDisplaySection(ehSetting: ehSetting)
                 ArchiverSettingsSection(ehSetting: ehSetting)
                 FrontPageSettingsSection(ehSetting: ehSetting)
+                OptionalUIElementsSection(ehSetting: ehSetting)
                 FavoritesSection(ehSetting: ehSetting)
-                RatingsSection(ehSetting: ehSetting)
-                TagFilteringThresholdSection(ehSetting: ehSetting)
-                TagWatchingThresholdSection(ehSetting: ehSetting)
+                SearchResultCountSection(ehSetting: ehSetting)
+                ThumbnailSettingsSection(ehSetting: ehSetting)
             }
             Group {
+                CoverScalingSection(ehSetting: ehSetting)
+                RatingsSection(ehSetting: ehSetting)
+                TagWatchingThresholdSection(ehSetting: ehSetting)
+                TagFilteringThresholdSection(ehSetting: ehSetting)
                 FilteredRemovalCountSection(ehSetting: ehSetting)
                 ExcludedLanguagesSection(ehSetting: ehSetting)
                 ExcludedUploadersSection(ehSetting: ehSetting)
-                SearchResultCountSection(ehSetting: ehSetting)
-                ThumbnailSettingsSection(ehSetting: ehSetting)
-                ThumbnailScalingSection(ehSetting: ehSetting)
                 ViewportOverrideSection(ehSetting: ehSetting)
                 GalleryCommentsSection(ehSetting: ehSetting)
                 GalleryTagsSection(ehSetting: ehSetting)
-                GalleryPageNumberingSection(ehSetting: ehSetting)
             }
             Group {
-                OriginalImagesSection(ehSetting: ehSetting)
+                GalleryPageThumbnailLabelingSection(ehSetting: ehSetting)
                 MultiplePageViewerSection(ehSetting: ehSetting)
             }
         }
@@ -110,7 +111,7 @@ struct EhSettingView: View {
         Group {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    viewStore.send(.setNavigation(.webView(Defaults.URL.uConfig)))
+                    store.send(.setNavigation(.webView(Defaults.URL.uConfig)))
                 } label: {
                     Image(systemSymbol: .globe)
                 }
@@ -119,16 +120,16 @@ struct EhSettingView: View {
 
             ToolbarItem(placement: .confirmationAction) {
                 Button {
-                    viewStore.send(.submitChanges)
+                    store.send(.submitChanges)
                 } label: {
                     Image(systemSymbol: .icloudAndArrowUp)
                 }
-                .disabled(viewStore.ehSetting == nil)
+                .disabled(store.ehSetting == nil)
             }
 
             ToolbarItem(placement: .keyboard) {
                 Button(L10n.Localizable.EhSettingView.ToolbarItem.Button.done) {
-                    viewStore.send(.setKeyboardHidden)
+                    store.send(.setKeyboardHidden)
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
@@ -186,7 +187,7 @@ private struct EhProfileSection: View {
                 .confirmationDialog(
                     message: L10n.Localizable.ConfirmationDialog.Title.delete,
                     unwrapping: $route,
-                    case: /EhSettingReducer.Route.deleteProfile
+                    case: \.deleteProfile
                 ) {
                     Button(
                         L10n.Localizable.ConfirmationDialog.Button.delete,
@@ -195,8 +196,8 @@ private struct EhProfileSection: View {
                 }
             }
         }
-        .onChange(of: ehProfile) {
-            performEhProfileAction(nil, nil, $0.value)
+        .onChange(of: ehProfile) { _, newValue in
+            performEhProfileAction(nil, nil, newValue.value)
         }
         .textCase(nil)
 
@@ -288,6 +289,16 @@ private struct ImageSizeSettingsSection: View {
         }
         .textCase(nil)
 
+        if let useOriginalImagesBinding = Binding($ehSetting.useOriginalImages) {
+            Section(L10n.Localizable.EhSettingView.Section.Title.originalImages) {
+                Toggle(
+                    L10n.Localizable.EhSettingView.Title.useOriginalImages,
+                    isOn: useOriginalImagesBinding
+                )
+            }
+            .textCase(nil)
+        }
+
         Section(L10n.Localizable.EhSettingView.Description.imageSize) {
             Text(L10n.Localizable.EhSettingView.Title.imageSize)
 
@@ -371,6 +382,15 @@ private struct FrontPageSettingsSection: View {
 
     var body: some View {
         Section {
+            CategoryView(bindings: categoryBindings)
+        } header: {
+            Text(L10n.Localizable.EhSettingView.Section.Title.frontPageSettings)
+                .newlineBold()
+                .appending(L10n.Localizable.EhSettingView.Description.galleryCategory)
+        }
+        .textCase(nil)
+
+        Section(L10n.Localizable.EhSettingView.Description.displayMode) {
             Picker(L10n.Localizable.EhSettingView.Title.displayMode, selection: $ehSetting.displayMode) {
                 ForEach(EhSetting.DisplayMode.allCases) { mode in
                     Text(mode.value)
@@ -378,25 +398,37 @@ private struct FrontPageSettingsSection: View {
                 }
             }
             .pickerStyle(.menu)
-        } header: {
-            Text(L10n.Localizable.EhSettingView.Section.Title.frontPageSettings)
-                .newlineBold()
-                .appending(L10n.Localizable.EhSettingView.Description.displayMode)
         }
         .textCase(nil)
 
-        Section {
+        Section(L10n.Localizable.EhSettingView.Section.Title.showSearchRangeIndicator) {
             Toggle(
-                L10n.Localizable.EhSettingView.Section.Title.showSearchRangeIndicator,
+                L10n.Localizable.EhSettingView.Title.showSearchRangeIndicator,
                 isOn: $ehSetting.showSearchRangeIndicator
             )
-        } header: {
-            Text(L10n.Localizable.EhSettingView.Section.Title.showSearchRangeIndicator)
         }
         .textCase(nil)
+    }
+}
 
-        Section(L10n.Localizable.EhSettingView.Description.galleryCategory) {
-            CategoryView(bindings: categoryBindings)
+// MARK: OptionalUIElementsSection
+private struct OptionalUIElementsSection: View {
+    @Binding private var ehSetting: EhSetting
+
+    init(ehSetting: Binding<EhSetting>) {
+        self._ehSetting = ehSetting
+    }
+
+    var body: some View {
+        Section {
+            Toggle(
+                L10n.Localizable.EhSettingView.Title.enableGalleryThumbnailSelector,
+                isOn: $ehSetting.enableGalleryThumbnailSelector
+            )
+        } header: {
+            Text(L10n.Localizable.EhSettingView.Section.Title.optionalUIElements)
+                .newlineBold()
+                .appending(L10n.Localizable.EhSettingView.Description.optionalUIElements)
         }
         .textCase(nil)
     }
@@ -545,6 +577,7 @@ private struct FilteredRemovalCountSection: View {
             Text(L10n.Localizable.EhSettingView.Section.Title.filteredRemovalCount).newlineBold()
             + Text(L10n.Localizable.EhSettingView.Description.filteredRemovalCount)
         }
+        .textCase(nil)
     }
 }
 
@@ -716,7 +749,7 @@ private struct ThumbnailSettingsSection: View {
     @Binding private var ehSetting: EhSetting
 
     init(ehSetting: Binding<EhSetting>) {
-        _ehSetting = ehSetting
+        self._ehSetting = ehSetting
     }
 
     var body: some View {
@@ -771,26 +804,26 @@ private struct ThumbnailSettingsSection: View {
     }
 }
 
-// MARK: ThumbnailScalingSection
-private struct ThumbnailScalingSection: View {
+// MARK: CoverScalingSection
+private struct CoverScalingSection: View {
     @Binding private var ehSetting: EhSetting
 
     init(ehSetting: Binding<EhSetting>) {
-        _ehSetting = ehSetting
+        self._ehSetting = ehSetting
     }
 
     var body: some View {
         Section {
             ValuePicker(
                 title: L10n.Localizable.EhSettingView.Title.scaleFactor,
-                value: $ehSetting.thumbnailScaleFactor,
+                value: $ehSetting.coverScaleFactor,
                 range: 75...150,
                 unit: "%"
             )
         } header: {
-            Text(L10n.Localizable.EhSettingView.Section.Title.thumbnailScaling)
+            Text(L10n.Localizable.EhSettingView.Section.Title.coverScaling)
                 .newlineBold()
-                .appending(L10n.Localizable.EhSettingView.Description.scaleFactor)
+                .appending(L10n.Localizable.EhSettingView.Description.coverScaleFactor)
         }
         .textCase(nil)
     }
@@ -913,43 +946,28 @@ private struct GalleryTagsSection: View {
     }
 }
 
-// MARK: GalleryPageNumberingSection
-private struct GalleryPageNumberingSection: View {
+// MARK: GalleryPageThumbnailLabelingSection
+private struct GalleryPageThumbnailLabelingSection: View {
     @Binding private var ehSetting: EhSetting
 
     init(ehSetting: Binding<EhSetting>) {
-        _ehSetting = ehSetting
+        self._ehSetting = ehSetting
     }
 
     var body: some View {
-        Section(L10n.Localizable.EhSettingView.Section.Title.galleryPageNumbering) {
-            Toggle(
-                L10n.Localizable.EhSettingView.Title.showGalleryPageNumbers,
-                isOn: $ehSetting.galleryShowPageNumbers
-            )
+        Section(L10n.Localizable.EhSettingView.Section.Title.galleryPageThumbnailLabeling) {
+            Picker(
+                L10n.Localizable.EhSettingView.Title.showLabelBelowGalleryThumbnails,
+                selection: $ehSetting.galleryPageNumbering
+            ) {
+                ForEach(EhSetting.GalleryPageNumbering.allCases) { behavior in
+                    Text(behavior.value)
+                        .tag(behavior)
+                }
+            }
+            .pickerStyle(.menu)
         }
         .textCase(nil)
-    }
-}
-
-// MARK: OriginalImagesSection
-private struct OriginalImagesSection: View {
-    @Binding private var ehSetting: EhSetting
-
-    init(ehSetting: Binding<EhSetting>) {
-        _ehSetting = ehSetting
-    }
-
-    var body: some View {
-        if let useOriginalImagesBinding = Binding($ehSetting.useOriginalImages) {
-            Section(L10n.Localizable.EhSettingView.Section.Title.originalImages) {
-                Toggle(
-                    L10n.Localizable.EhSettingView.Title.useOriginalImages,
-                    isOn: useOriginalImagesBinding
-                )
-            }
-            .textCase(nil)
-        }
     }
 }
 
@@ -1021,7 +1039,7 @@ struct EhSettingView_Previews: PreviewProvider {
             EhSettingView(
                 store: .init(
                     initialState: .init(ehSetting: .empty, ehProfile: .empty, loadingState: .idle),
-                    reducer: EhSettingReducer()
+                    reducer: EhSettingReducer.init
                 ),
                 bypassesSNIFiltering: false,
                 blurRadius: 0

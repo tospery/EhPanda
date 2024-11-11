@@ -10,8 +10,7 @@ import ComposableArchitecture
 
 struct MigrationView: View {
     @Environment(\.colorScheme) private var colorScheme
-    private let store: StoreOf<MigrationReducer>
-    @ObservedObject private var viewStore: ViewStoreOf<MigrationReducer>
+    @Bindable private var store: StoreOf<MigrationReducer>
 
     private var reversedPrimary: Color {
         colorScheme == .light ? .white : .black
@@ -19,7 +18,6 @@ struct MigrationView: View {
 
     init(store: StoreOf<MigrationReducer>) {
         self.store = store
-        viewStore = ViewStore(store)
     }
 
     var body: some View {
@@ -27,37 +25,32 @@ struct MigrationView: View {
             ZStack {
                 reversedPrimary.ignoresSafeArea()
                 LoadingView(title: L10n.Localizable.LoadingView.Title.preparingDatabase)
-                    .opacity(viewStore.databaseState == .loading ? 1 : 0)
-                let error = (/LoadingState.failed).extract(from: viewStore.databaseState)
+                    .opacity(store.databaseState == .loading ? 1 : 0)
+                let error = store.databaseState.failed
                 let errorNonNil = error ?? .databaseCorrupted(nil)
                 AlertView(symbol: errorNonNil.symbol, message: errorNonNil.localizedDescription) {
                     AlertViewButton(title: L10n.Localizable.ErrorView.Button.dropDatabase) {
-                        viewStore.send(.setNavigation(.dropDialog))
+                        store.send(.setNavigation(.dropDialog))
                     }
                     .confirmationDialog(
                         message: L10n.Localizable.ConfirmationDialog.Title.dropDatabase,
-                        unwrapping: viewStore.binding(\.$route),
-                        case: /MigrationReducer.Route.dropDialog
+                        unwrapping: $store.route,
+                        case: \.dropDialog
                     ) {
                         Button(L10n.Localizable.ConfirmationDialog.Button.dropDatabase, role: .destructive) {
-                            viewStore.send(.dropDatabase)
+                            store.send(.dropDatabase)
                         }
                     }
                 }
                 .opacity(error != nil ? 1 : 0)
             }
-            .animation(.default, value: viewStore.databaseState)
+            .animation(.default, value: store.databaseState)
         }
     }
 }
 
 struct MigrationView_Previews: PreviewProvider {
     static var previews: some View {
-        MigrationView(
-            store: .init(
-                initialState: .init(),
-                reducer: MigrationReducer()
-            )
-        )
+        MigrationView(store: .init(initialState: .init(), reducer: MigrationReducer.init))
     }
 }

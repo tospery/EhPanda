@@ -318,41 +318,17 @@ struct Parser {
                   let singlePageCount = Int(gpcText[rangeA.upperBound..<rangeB.lowerBound])
             else { throw AppError.parseFailed }
 
-            if previewMode == "gdtl" {
-                switch singlePageCount {
-                case _ where singlePageCount <= 20:
-                    return .large(rows: 4)
-
-                case _ where singlePageCount <= 50:
-                    return .large(rows: 10)
-
-                case _ where singlePageCount <= 100:
-                    return .large(rows: 20)
-
-                case _ where singlePageCount <= 200:
-                    return .large(rows: 40)
-
-                default:
-                    return .large(rows: 4)
-                }
-            } else {
-                switch singlePageCount {
-                case _ where singlePageCount <= 40:
-                    return .normal(rows: 4)
-
-                case _ where singlePageCount <= 100:
-                    return .normal(rows: 10)
-
-                case _ where singlePageCount <= 200:
-                    return .normal(rows: 20)
-
-                case _ where singlePageCount <= 400:
-                    return .normal(rows: 40)
-
-                default:
-                    return .normal(rows: 4)
-                }
+            let isLargePreview = previewMode == "gt200"
+            let factor = isLargePreview ? 1 : 2
+            let rowsCount =
+            switch singlePageCount {
+            case _ where singlePageCount <= 20 * factor: 4
+            case _ where singlePageCount <= 40 * factor: 8
+            case _ where singlePageCount <= 100 * factor: 20
+            case _ where singlePageCount <= 200 * factor: 40
+            default: 4
             }
+            return isLargePreview ? .large(rows: rowsCount) : .normal(rows: rowsCount)
         }
 
         func parseCoverURL(node: XMLElement?) throws -> URL {
@@ -562,7 +538,8 @@ struct Parser {
                 torrentCount: arcAndTor.1
             )
             tmpGalleryState = GalleryState(
-                gid: gid, tags: tags,
+                gid: gid,
+                tags: tags,
                 previewURLs: previewURLs,
                 previewConfig: try? parsePreviewConfig(doc: doc),
                 comments: parseComments(doc: doc)
@@ -594,60 +571,65 @@ struct Parser {
 
     // MARK: Preview
     static func parsePreviewURLs(doc: HTMLDocument) throws -> [Int: URL] {
-        func parseNormalPreviewURLs(node: XMLElement) -> [Int: URL] {
+        func parseCombinedPreviewURLs(node: XMLElement) -> [Int: URL] {
             var previewURLs = [Int: URL]()
 
-            for link in node.xpath("//div") where link.className == nil {
-                guard let imgLink = link.at_xpath("//img"),
-                      let index = Int(imgLink["alt"] ?? ""),
-                      let linkStyle = link["style"],
-                      let rangeA = linkStyle.range(of: "width:"),
-                      let rangeB = linkStyle.range(of: "px; height:"),
-                      let rangeC = linkStyle.range(of: "px; background"),
-                      let rangeD = linkStyle.range(of: "url("),
-                      let rangeE = linkStyle.range(of: ") -")
-                else { continue }
+            for link in node.xpath("//a") {
+                if let divNode = link.at_xpath(".//div[@title and @style]"),
+                   let style = divNode["style"],
+                   let rangeA = style.range(of: "width:"),
+                   let rangeB = style.range(of: "px;height:"),
+                   let rangeC = style.range(of: "px;background"),
+                   let rangeD = style.range(of: "url("),
+                   let rangeE = style.range(of: ") -"),
+                   let rangeF = style[rangeE.upperBound...].range(of: "px "),
+                   let urlString = style[rangeD.upperBound..<rangeE.lowerBound]
+                       .replacingOccurrences(of: "'", with: "")
+                       .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                   let url = URL(string: urlString),
+                   let title = divNode["title"],
+                   let index = parseGTX00IndexFromTitle(from: title)
+                {
+                    let width = String(style[rangeA.upperBound..<rangeB.lowerBound])
+                    let height = String(style[rangeB.upperBound..<rangeC.lowerBound])
+                    let offset = String(style[rangeE.upperBound..<rangeF.lowerBound])
 
-                let remainingText = linkStyle[rangeE.upperBound...]
-                guard let rangeF = remainingText.range(of: "px ")
-                else { continue }
-
-                let width = linkStyle[rangeA.upperBound..<rangeB.lowerBound]
-                let height = linkStyle[rangeB.upperBound..<rangeC.lowerBound]
-                let offset = remainingText[rangeE.upperBound..<rangeF.lowerBound]
-                guard let plainURL = URL(string: .init(linkStyle[rangeD.upperBound..<rangeE.lowerBound]))
-                else { continue }
-
-                previewURLs[index] = URLUtil.normalPreviewURL(
-                    plainURL: plainURL, width: String(width),
-                    height: String(height), offset: String(offset)
-                )
+                    previewURLs[index] = URLUtil.combinedPreviewURL(
+                        plainURL: url,
+                        width: width,
+                        height: height,
+                        offset: offset
+                    )
+                }
             }
-
             return previewURLs
         }
-        func parseLargePreviewURLs(node: XMLElement) -> [Int: URL] {
+        func parseStandalonePreviewURLs(node: XMLElement) -> [Int: URL] {
             var previewURLs = [Int: URL]()
 
-            for link in node.xpath("//img") {
-                guard let index = Int(link["alt"] ?? ""),
-                      let urlString = link["src"], !urlString.contains("blank.gif"),
-                      let url = URL(string: urlString)
-                else { continue }
-
-                previewURLs[index] = url
+            for link in node.xpath("//a") {
+                if let divNode = link.at_xpath(".//div[@title and @style]"),
+                   let style = divNode["style"],
+                   let rangeA = style.range(of: "url("),
+                   let rangeB = style.range(of: ")"),
+                   let urlString = style[rangeA.upperBound..<rangeB.lowerBound]
+                       .replacingOccurrences(of: "'", with: "")
+                       .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                   let url = URL(string: urlString),
+                   let title = divNode["title"],
+                   let index = parseGTX00IndexFromTitle(from: title)
+                {
+                    previewURLs[index] = url
+                }
             }
-
             return previewURLs
         }
 
-        guard let gdtNode = doc.at_xpath("//div [@id='gdt']"),
-              let previewMode = try? parsePreviewMode(doc: doc)
+        guard let gdtNode = doc.at_xpath("//div [@id='gdt']")
         else { throw AppError.parseFailed }
 
-        return previewMode == "gdtl"
-            ? parseLargePreviewURLs(node: gdtNode)
-            : parseNormalPreviewURLs(node: gdtNode)
+        let combinedURLs = parseCombinedPreviewURLs(node: gdtNode)
+        return combinedURLs.isEmpty ? parseStandalonePreviewURLs(node: gdtNode) : combinedURLs
     }
 
     // MARK: Comment
@@ -722,19 +704,31 @@ struct Parser {
         return comments
     }
 
+    static func parseGTX00IndexFromTitle(from title: String) -> Int? {
+        // The probable format of page title is "Page [Number]: filename"
+        (
+            title
+                .components(separatedBy: ":")
+                .first?
+                .replacingOccurrences(of: "Page ", with: "")
+                .trimmingCharacters(in: .whitespaces)
+        )
+        .flatMap(Int.init)
+    }
+
     // MARK: ImageURL
     static func parseThumbnailURLs(doc: HTMLDocument) throws -> [Int: URL] {
         var thumbnailURLs = [Int: URL]()
 
-        guard let gdtNode = doc.at_xpath("//div [@id='gdt']"),
-              let previewMode = try? parsePreviewMode(doc: doc)
+        guard let gdtNode = doc.at_xpath("//div [@id='gdt']")
         else { throw AppError.parseFailed }
 
-        for link in gdtNode.xpath("//div [@class='\(previewMode)']") {
-            guard let aLink = link.at_xpath("//a"),
-                  let thumbnailURLString = aLink["href"],
-                  let thumbnailURL = URL(string: thumbnailURLString),
-                  let index = Int(aLink.at_xpath("//img")?["alt"] ?? "")
+        for aLink in gdtNode.xpath("a") {
+            guard let href = aLink["href"],
+                  let thumbnailURL = URL(string: href),
+                  let divNode = aLink.at_xpath(".//div[@title and @style]"),
+                  let title = divNode["title"],
+                  let index = parseGTX00IndexFromTitle(from: title)
             else { continue }
 
             thumbnailURLs[index] = thumbnailURL
@@ -765,10 +759,10 @@ struct Parser {
     }
 
     static func parsePreviewMode(doc: HTMLDocument) throws -> String {
-        if doc.at_xpath("//div [@class='gdtm']") != nil {
-            return "gdtm"
-        } else if doc.at_xpath("//div [@class='gdtl']") != nil {
-            return "gdtl"
+        if doc.at_xpath("//div [@class='gt100']") != nil {
+            return "gt100"
+        } else if doc.at_xpath("//div [@class='gt200']") != nil {
+            return "gt200"
         } else {
             throw AppError.parseFailed
         }
@@ -1132,7 +1126,7 @@ extension Parser {
               let form = tmpForm else { throw AppError.parseFailed }
 
         // swiftlint:disable line_length
-        var ehProfiles = [EhProfile](); var isCapableOfCreatingNewProfile: Bool?; var capableLoadThroughHathSetting: EhSetting.LoadThroughHathSetting?; var capableImageResolution: EhSetting.ImageResolution?; var capableSearchResultCount: EhSetting.SearchResultCount?; var capableThumbnailConfigSize: EhSetting.ThumbnailSize?; var capableThumbnailConfigRowCount: EhSetting.ThumbnailRowCount?; var loadThroughHathSetting: EhSetting.LoadThroughHathSetting?; var browsingCountry: EhSetting.BrowsingCountry?; var imageResolution: EhSetting.ImageResolution?; var imageSizeWidth: Float?; var imageSizeHeight: Float?; var galleryName: EhSetting.GalleryName?; var literalBrowsingCountry: String?; var archiverBehavior: EhSetting.ArchiverBehavior?; var displayMode: EhSetting.DisplayMode?; var showSearchRangeIndicator: Bool?; var disabledCategories = [Bool](); var favoriteCategories = [String](); var favoritesSortOrder: EhSetting.FavoritesSortOrder?; var ratingsColor: String?; var tagFilteringThreshold: Float?; var tagWatchingThreshold: Float?; var showFilteredRemovalCount: Bool?; var excludedLanguages = [Bool](); var excludedUploaders: String?; var searchResultCount: EhSetting.SearchResultCount?; var thumbnailLoadTiming: EhSetting.ThumbnailLoadTiming?; var thumbnailConfigSize: EhSetting.ThumbnailSize?; var thumbnailConfigRows: EhSetting.ThumbnailRowCount?; var thumbnailScaleFactor: Float?; var viewportVirtualWidth: Float?; var commentsSortOrder: EhSetting.CommentsSortOrder?; var commentVotesShowTiming: EhSetting.CommentVotesShowTiming?; var tagsSortOrder: EhSetting.TagsSortOrder?; var galleryShowPageNumbers: Bool?; var useOriginalImages: Bool?; var useMultiplePageViewer: Bool?; var multiplePageViewerStyle: EhSetting.MultiplePageViewerStyle?; var multiplePageViewerShowThumbnailPane: Bool?
+        var ehProfiles = [EhProfile](); var isCapableOfCreatingNewProfile: Bool?; var capableLoadThroughHathSetting: EhSetting.LoadThroughHathSetting?; var capableImageResolution: EhSetting.ImageResolution?; var capableSearchResultCount: EhSetting.SearchResultCount?; var capableThumbnailConfigSizes = [EhSetting.ThumbnailSize](); var capableThumbnailConfigRowCount: EhSetting.ThumbnailRowCount?; var loadThroughHathSetting: EhSetting.LoadThroughHathSetting?; var browsingCountry: EhSetting.BrowsingCountry?; var imageResolution: EhSetting.ImageResolution?; var imageSizeWidth: Float?; var imageSizeHeight: Float?; var galleryName: EhSetting.GalleryName?; var literalBrowsingCountry: String?; var archiverBehavior: EhSetting.ArchiverBehavior?; var displayMode: EhSetting.DisplayMode?; var showSearchRangeIndicator: Bool?; var enableGalleryThumbnailSelector: Bool?; var disabledCategories = [Bool](); var favoriteCategories = [String](); var favoritesSortOrder: EhSetting.FavoritesSortOrder?; var ratingsColor: String?; var tagFilteringThreshold: Float?; var tagWatchingThreshold: Float?; var showFilteredRemovalCount: Bool?; var excludedLanguages = [Bool](); var excludedUploaders: String?; var searchResultCount: EhSetting.SearchResultCount?; var thumbnailLoadTiming: EhSetting.ThumbnailLoadTiming?; var thumbnailConfigSize: EhSetting.ThumbnailSize?; var thumbnailConfigRows: EhSetting.ThumbnailRowCount?; var coverScaleFactor: Float?; var viewportVirtualWidth: Float?; var commentsSortOrder: EhSetting.CommentsSortOrder?; var commentVotesShowTiming: EhSetting.CommentVotesShowTiming?; var tagsSortOrder: EhSetting.TagsSortOrder?; var galleryPageNumbers: EhSetting.GalleryPageNumbering?; var useOriginalImages: Bool?; var useMultiplePageViewer: Bool?; var multiplePageViewerStyle: EhSetting.MultiplePageViewerStyle?; var multiplePageViewerShowThumbnailPane: Bool?
         // swiftlint:enable line_length
 
         ehProfiles = parseSelections(node: profileOuter, name: "profile_set")
@@ -1192,6 +1186,9 @@ extension Parser {
             if optouter.at_xpath("//input [@name='pp']") != nil {
                 showSearchRangeIndicator = parseInt(node: optouter, name: "pp") == 0
             }
+            if optouter.at_xpath("//input [@name='xn_0']") != nil {
+                enableGalleryThumbnailSelector = parseCheckBoxBool(node: optouter, name: "xn_0")
+            }
             if optouter.at_xpath("//div [@id='catsel']") != nil {
                 disabledCategories = Array(0...9)
                     .map { "ct_\(EhSetting.categoryNames[$0])" }
@@ -1234,16 +1231,38 @@ extension Parser {
                 thumbnailLoadTiming = parseEnum(node: optouter, name: "lt")
             }
             if optouter.at_xpath("//input [@name='ts']") != nil {
-                thumbnailConfigSize = parseEnum(node: optouter, name: "ts")
-                capableThumbnailConfigSize = parseCapability(node: optouter, name: "ts")
+                var options = [(value: Int, isEnabled: Bool, isSelected: Bool)]()
+                for link in optouter.xpath("//input [@name='ts']") {
+                    if let valueString = link["value"], let value = Int(valueString) {
+                        let isEnabled = link["disabled"] != "disabled"
+                        let isSelected = link["checked"] == "checked"
+                        options.append((value: value, isEnabled: isEnabled, isSelected: isSelected))
+                    }
+                }
+                let thumbnailSize: (Int) -> EhSetting.ThumbnailSize? = {
+                    switch $0 {
+                    case 0: .auto
+                    case 1: .normal
+                    case 2: .small
+                    default: nil
+                    }
+                }
+                for option in options where option.isEnabled {
+                    if let size = thumbnailSize(option.value) {
+                        capableThumbnailConfigSizes.append(size)
+                    }
+                }
+                if let selectedSize = (options.first(where: \.isSelected)?.value).flatMap(thumbnailSize) {
+                    thumbnailConfigSize = selectedSize
+                }
             }
             if optouter.at_xpath("//input [@name='tr']") != nil {
                 thumbnailConfigRows = parseEnum(node: optouter, name: "tr")
                 capableThumbnailConfigRowCount = parseCapability(node: optouter, name: "tr")
             }
             if optouter.at_xpath("//input [@name='tp']") != nil {
-                thumbnailScaleFactor = Float(parseString(node: optouter, name: "tp") ?? "100")
-                if thumbnailScaleFactor == nil { thumbnailScaleFactor = 100 }
+                coverScaleFactor = Float(parseString(node: optouter, name: "tp") ?? "100")
+                if coverScaleFactor == nil { coverScaleFactor = 100 }
             }
             if optouter.at_xpath("//input [@name='vp']") != nil {
                 viewportVirtualWidth = Float(parseString(node: optouter, name: "vp") ?? "0")
@@ -1259,7 +1278,7 @@ extension Parser {
                 tagsSortOrder = parseEnum(node: optouter, name: "tb")
             }
             if optouter.at_xpath("//input [@name='pn']") != nil {
-                galleryShowPageNumbers = parseInt(node: optouter, name: "pn") == 1
+                galleryPageNumbers = parseEnum(node: optouter, name: "pn")
             }
             if optouter.at_xpath("//input [@name='oi']") != nil {
                 useOriginalImages = parseInt(node: optouter, name: "oi") == 1
@@ -1276,10 +1295,10 @@ extension Parser {
         }
 
         // swiftlint:disable line_length
-        guard !ehProfiles.filter(\.isSelected).isEmpty, let isCapableOfCreatingNewProfile, let capableLoadThroughHathSetting, let capableImageResolution, let capableSearchResultCount, let capableThumbnailConfigSize, let capableThumbnailConfigRowCount, let loadThroughHathSetting, let browsingCountry, let literalBrowsingCountry, let imageResolution, let imageSizeWidth, let imageSizeHeight, let galleryName, let archiverBehavior, let displayMode, let showSearchRangeIndicator, disabledCategories.count == 10, favoriteCategories.count == 10, let favoritesSortOrder, let ratingsColor, let tagFilteringThreshold, let tagWatchingThreshold, let showFilteredRemovalCount, excludedLanguages.count == 50, let excludedUploaders, let searchResultCount, let thumbnailLoadTiming, let thumbnailConfigSize, let thumbnailConfigRows, let thumbnailScaleFactor, let viewportVirtualWidth, let commentsSortOrder, let commentVotesShowTiming, let tagsSortOrder, let galleryShowPageNumbers
+        guard !ehProfiles.filter(\.isSelected).isEmpty, let isCapableOfCreatingNewProfile, let capableLoadThroughHathSetting, let capableImageResolution, let capableSearchResultCount, !capableThumbnailConfigSizes.isEmpty, let capableThumbnailConfigRowCount, let loadThroughHathSetting, let browsingCountry, let literalBrowsingCountry, let imageResolution, let imageSizeWidth, let imageSizeHeight, let galleryName, let archiverBehavior, let displayMode, let showSearchRangeIndicator, let enableGalleryThumbnailSelector, disabledCategories.count == 10, favoriteCategories.count == 10, let favoritesSortOrder, let ratingsColor, let tagFilteringThreshold, let tagWatchingThreshold, let showFilteredRemovalCount, excludedLanguages.count == 50, let excludedUploaders, let searchResultCount, let thumbnailLoadTiming, let thumbnailConfigSize, let thumbnailConfigRows, let coverScaleFactor, let viewportVirtualWidth, let commentsSortOrder, let commentVotesShowTiming, let tagsSortOrder, let galleryPageNumbers
         else { throw AppError.parseFailed }
 
-        return EhSetting(ehProfiles: ehProfiles.sorted(), isCapableOfCreatingNewProfile: isCapableOfCreatingNewProfile, capableLoadThroughHathSetting: capableLoadThroughHathSetting, capableImageResolution: capableImageResolution, capableSearchResultCount: capableSearchResultCount, capableThumbnailConfigSize: capableThumbnailConfigSize, capableThumbnailConfigRowCount: capableThumbnailConfigRowCount, loadThroughHathSetting: loadThroughHathSetting, browsingCountry: browsingCountry, literalBrowsingCountry: literalBrowsingCountry, imageResolution: imageResolution, imageSizeWidth: imageSizeWidth, imageSizeHeight: imageSizeHeight, galleryName: galleryName, archiverBehavior: archiverBehavior, displayMode: displayMode, showSearchRangeIndicator: showSearchRangeIndicator, disabledCategories: disabledCategories, favoriteCategories: favoriteCategories, favoritesSortOrder: favoritesSortOrder, ratingsColor: ratingsColor, tagFilteringThreshold: tagFilteringThreshold, tagWatchingThreshold: tagWatchingThreshold, showFilteredRemovalCount: showFilteredRemovalCount, excludedLanguages: excludedLanguages, excludedUploaders: excludedUploaders, searchResultCount: searchResultCount, thumbnailLoadTiming: thumbnailLoadTiming, thumbnailConfigSize: thumbnailConfigSize, thumbnailConfigRows: thumbnailConfigRows, thumbnailScaleFactor: thumbnailScaleFactor, viewportVirtualWidth: viewportVirtualWidth, commentsSortOrder: commentsSortOrder, commentVotesShowTiming: commentVotesShowTiming, tagsSortOrder: tagsSortOrder, galleryShowPageNumbers: galleryShowPageNumbers, useOriginalImages: useOriginalImages, useMultiplePageViewer: useMultiplePageViewer, multiplePageViewerStyle: multiplePageViewerStyle, multiplePageViewerShowThumbnailPane: multiplePageViewerShowThumbnailPane
+        return EhSetting(ehProfiles: ehProfiles.sorted(), isCapableOfCreatingNewProfile: isCapableOfCreatingNewProfile, capableLoadThroughHathSetting: capableLoadThroughHathSetting, capableImageResolution: capableImageResolution, capableSearchResultCount: capableSearchResultCount, capableThumbnailConfigRowCount: capableThumbnailConfigRowCount, capableThumbnailConfigSizes: capableThumbnailConfigSizes, loadThroughHathSetting: loadThroughHathSetting, browsingCountry: browsingCountry, literalBrowsingCountry: literalBrowsingCountry, imageResolution: imageResolution, imageSizeWidth: imageSizeWidth, imageSizeHeight: imageSizeHeight, galleryName: galleryName, archiverBehavior: archiverBehavior, displayMode: displayMode, showSearchRangeIndicator: showSearchRangeIndicator, enableGalleryThumbnailSelector: enableGalleryThumbnailSelector, disabledCategories: disabledCategories, favoriteCategories: favoriteCategories, favoritesSortOrder: favoritesSortOrder, ratingsColor: ratingsColor, tagFilteringThreshold: tagFilteringThreshold, tagWatchingThreshold: tagWatchingThreshold, showFilteredRemovalCount: showFilteredRemovalCount, excludedLanguages: excludedLanguages, excludedUploaders: excludedUploaders, searchResultCount: searchResultCount, thumbnailLoadTiming: thumbnailLoadTiming, thumbnailConfigSize: thumbnailConfigSize, thumbnailConfigRows: thumbnailConfigRows, coverScaleFactor: coverScaleFactor, viewportVirtualWidth: viewportVirtualWidth, commentsSortOrder: commentsSortOrder, commentVotesShowTiming: commentVotesShowTiming, tagsSortOrder: tagsSortOrder, galleryPageNumbering: galleryPageNumbers, useOriginalImages: useOriginalImages, useMultiplePageViewer: useMultiplePageViewer, multiplePageViewerStyle: multiplePageViewerStyle, multiplePageViewerShowThumbnailPane: multiplePageViewerShowThumbnailPane
         )
         // swiftlint:enable line_length
     }

@@ -8,16 +8,19 @@
 import Foundation
 import ComposableArchitecture
 
-struct HistoryReducer: ReducerProtocol {
+@Reducer
+struct HistoryReducer {
+    @CasePathable
     enum Route: Equatable {
         case detail(String)
         case clearHistory
     }
 
+    @ObservableState
     struct State: Equatable {
-        @BindingState var route: Route?
-        @BindingState var keyword = ""
-        @BindingState var clearDialogPresented = false
+        var route: Route?
+        var keyword = ""
+        var clearDialogPresented = false
 
         var filteredGalleries: [Gallery] {
             guard !keyword.isEmpty else { return galleries }
@@ -26,10 +29,10 @@ struct HistoryReducer: ReducerProtocol {
         var galleries = [Gallery]()
         var loadingState: LoadingState = .idle
 
-        @Heap var detailState: DetailReducer.State!
+        var detailState: Heap<DetailReducer.State?>
 
         init() {
-            _detailState = .init(.init())
+            detailState = .init(.init())
         }
     }
 
@@ -48,36 +51,41 @@ struct HistoryReducer: ReducerProtocol {
     @Dependency(\.databaseClient) private var databaseClient
     @Dependency(\.hapticsClient) private var hapticsClient
 
-    var body: some ReducerProtocol<State, Action> {
+    var body: some Reducer<State, Action> {
         BindingReducer()
+            .onChange(of: \.route) { _, newValue in
+                Reduce({ _, _ in newValue == nil ? .send(.clearSubStates) : .none })
+            }
 
         Reduce { state, action in
             switch action {
-            case .binding(\.$route):
-                return state.route == nil ? .init(value: .clearSubStates) : .none
-
             case .binding:
                 return .none
 
             case .setNavigation(let route):
                 state.route = route
-                return route == nil ? .init(value: .clearSubStates) : .none
+                return route == nil ? .send(.clearSubStates) : .none
 
             case .clearSubStates:
-                state.detailState = .init()
-                return .init(value: .detail(.teardown))
+                state.detailState.wrappedValue = .init()
+                return .send(.detail(.teardown))
 
             case .clearHistoryGalleries:
                 return .merge(
-                    databaseClient.clearHistoryGalleries().fireAndForget(),
-                    .init(value: .fetchGalleries)
-                        .delay(for: .milliseconds(200), scheduler: DispatchQueue.main).eraseToEffect()
+                    .run(operation: { _ in await databaseClient.clearHistoryGalleries() }),
+                    .run { send in
+                        try await Task.sleep(for: .milliseconds(200))
+                        await send(.fetchGalleries)
+                    }
                 )
 
             case .fetchGalleries:
                 guard state.loadingState != .loading else { return .none }
                 state.loadingState = .loading
-                return databaseClient.fetchHistoryGalleries().map(Action.fetchGalleriesDone)
+                return .run { send in
+                    let historyGalleries = await databaseClient.fetchHistoryGalleries()
+                    await send(.fetchGalleriesDone(historyGalleries))
+                }
 
             case .fetchGalleriesDone(let galleries):
                 state.loadingState = .idle
@@ -93,6 +101,6 @@ struct HistoryReducer: ReducerProtocol {
             }
         }
 
-        Scope(state: \.detailState, action: /Action.detail, child: DetailReducer.init)
+        Scope(state: \.detailState.wrappedValue!, action: \.detail, child: DetailReducer.init)
     }
 }

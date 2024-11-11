@@ -16,8 +16,8 @@ protocol Request {
     var publisher: AnyPublisher<Response, AppError> { get }
 }
 extension Request {
-    var effect: EffectTask<Result<Response, AppError>> {
-        publisher.receive(on: DispatchQueue.main).catchToEffect()
+    func response() async -> Result<Response, AppError> {
+        await publisher.receive(on: DispatchQueue.main).async()
     }
 
     func mapAppError(error: Error) -> AppError {
@@ -40,6 +40,28 @@ extension Request {
 private extension Publisher {
     func genericRetry() -> Publishers.Retry<Self> {
         retry(3)
+    }
+
+    func async() async -> Result<Output, Failure> where Failure == AppError {
+        await withCheckedContinuation { continuation in
+            var cancellable: AnyCancellable?
+            var finishedWithoutValue = true
+            cancellable = first()
+                .sink { result in
+                    switch result {
+                    case .finished:
+                        if finishedWithoutValue {
+                            continuation.resume(returning: .failure(.unknown))
+                        }
+                    case let .failure(error):
+                        continuation.resume(returning: .failure(error))
+                    }
+                    cancellable?.cancel()
+                } receiveValue: { value in
+                    finishedWithoutValue = false
+                    continuation.resume(returning: .success(value))
+                }
+        }
     }
 }
 private extension URLRequest {
@@ -794,16 +816,26 @@ struct SubmitEhSettingChangesRequest: Request {
             "xu": ehSetting.excludedUploaders,
             "rc": String(ehSetting.searchResultCount.rawValue),
             "lt": String(ehSetting.thumbnailLoadTiming.rawValue),
-            "ts": String(ehSetting.thumbnailConfigSize.rawValue),
             "tr": String(ehSetting.thumbnailConfigRows.rawValue),
-            "tp": String(Int(ehSetting.thumbnailScaleFactor)),
+            "tp": String(Int(ehSetting.coverScaleFactor)),
             "vp": String(Int(ehSetting.viewportVirtualWidth)),
             "cs": String(ehSetting.commentsSortOrder.rawValue),
             "sc": String(ehSetting.commentVotesShowTiming.rawValue),
             "tb": String(ehSetting.tagsSortOrder.rawValue),
-            "pn": ehSetting.galleryShowPageNumbers ? "1" : "0",
+            "pn": String(ehSetting.galleryPageNumbering.rawValue),
             "apply": "Apply"
         ]
+
+        if ehSetting.enableGalleryThumbnailSelector {
+            params["xn_0"] = "on"
+        }
+
+        switch ehSetting.thumbnailConfigSize {
+        case .auto: params["ts"] = "0"
+        case .normal: params["ts"] = "1"
+        case .small: params["ts"] = "2"
+        default: break
+        }
 
         EhSetting.categoryNames.enumerated().forEach { index, name in
             params["ct_\(name)"] = ehSetting.disabledCategories[index] ? "1" : "0"

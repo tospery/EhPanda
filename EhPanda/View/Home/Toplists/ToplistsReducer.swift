@@ -7,7 +7,9 @@
 
 import ComposableArchitecture
 
-struct ToplistsReducer: ReducerProtocol {
+@Reducer
+struct ToplistsReducer {
+    @dynamicMemberLookup @CasePathable
     enum Route: Equatable {
         case detail(String)
     }
@@ -16,12 +18,13 @@ struct ToplistsReducer: ReducerProtocol {
         case fetchGalleries, fetchMoreGalleries
     }
 
+    @ObservableState
     struct State: Equatable {
-        @BindingState var route: Route?
-        @BindingState var keyword = ""
-        @BindingState var jumpPageIndex = ""
-        @BindingState var jumpPageAlertFocused = false
-        @BindingState var jumpPageAlertPresented = false
+        var route: Route?
+        var keyword = ""
+        var jumpPageIndex = ""
+        var jumpPageAlertFocused = false
+        var jumpPageAlertPresented = false
 
         var type: ToplistsType = .yesterday
 
@@ -48,10 +51,10 @@ struct ToplistsReducer: ReducerProtocol {
             rawFooterLoadingState[type]
         }
 
-        @Heap var detailState: DetailReducer.State!
+        var detailState: Heap<DetailReducer.State?>
 
         init() {
-            _detailState = .init(.init())
+            detailState = .init(.init())
         }
 
         mutating func insertGalleries(type: ToplistsType, galleries: [Gallery]) {
@@ -85,54 +88,56 @@ struct ToplistsReducer: ReducerProtocol {
     @Dependency(\.databaseClient) private var databaseClient
     @Dependency(\.hapticsClient) private var hapticsClient
 
-    var body: some ReducerProtocol<State, Action> {
+    var body: some Reducer<State, Action> {
         BindingReducer()
+            .onChange(of: \.route) { _, newValue in
+                Reduce({ _, _ in newValue == nil ? .send(.clearSubStates) : .none })
+            }
+            .onChange(of: \.jumpPageAlertPresented) { _, newValue in
+                Reduce { state, _ in
+                    if !newValue {
+                        state.jumpPageAlertFocused = false
+                    }
+                    return .none
+                }
+            }
 
         Reduce { state, action in
             switch action {
-            case .binding(\.$route):
-                return state.route == nil ? .init(value: .clearSubStates) : .none
-
-            case .binding(\.$jumpPageAlertPresented):
-                if !state.jumpPageAlertPresented {
-                    state.jumpPageAlertFocused = false
-                }
-                return .none
-
             case .binding:
                 return .none
 
             case .setNavigation(let route):
                 state.route = route
-                return route == nil ? .init(value: .clearSubStates) : .none
+                return route == nil ? .send(.clearSubStates) : .none
 
             case .setToplistsType(let type):
                 state.type = type
                 guard state.galleries?.isEmpty != false else { return .none }
-                return .init(value: Action.fetchGalleries())
+                return .send(.fetchGalleries())
 
             case .clearSubStates:
-                state.detailState = .init()
-                return .init(value: .detail(.teardown))
+                state.detailState.wrappedValue = .init()
+                return .send(.detail(.teardown))
 
             case .performJumpPage:
                 guard let index = Int(state.jumpPageIndex),
                       let pageNumber = state.pageNumber,
                       index > 0, index <= pageNumber.maximum + 1 else {
-                    return .fireAndForget({ hapticsClient.generateNotificationFeedback(.error) })
+                    return .run(operation: { _ in hapticsClient.generateNotificationFeedback(.error) })
                 }
-                return .init(value: .fetchGalleries(index - 1))
+                return .send(.fetchGalleries(index - 1))
 
             case .presentJumpPageAlert:
                 state.jumpPageAlertPresented = true
-                return .fireAndForget({ hapticsClient.generateFeedback(.light) })
+                return .run(operation: { _ in hapticsClient.generateFeedback(.light) })
 
             case .setJumpPageAlertFocused(let isFocused):
                 state.jumpPageAlertFocused = isFocused
                 return .none
 
             case .teardown:
-                return .cancel(ids: CancelID.allCases)
+                return .merge(CancelID.allCases.map(Effect.cancel(id:)))
 
             case .fetchGalleries(let pageNum):
                 guard state.loadingState != .loading else { return .none }
@@ -142,9 +147,14 @@ struct ToplistsReducer: ReducerProtocol {
                 } else {
                     state.rawPageNumber[state.type]?.resetPages()
                 }
-                return ToplistsGalleriesRequest(catIndex: state.type.categoryIndex, pageNum: pageNum)
-                    .effect.map({ [type = state.type] in Action.fetchGalleriesDone(type, $0) })
-                    .cancellable(id: CancelID.fetchGalleries)
+                return .run { [type = state.type] send in
+                    let response = await ToplistsGalleriesRequest(
+                        catIndex: type.categoryIndex, pageNum: pageNum
+                    )
+                    .response()
+                    await send(.fetchGalleriesDone(type, response))
+                }
+                .cancellable(id: CancelID.fetchGalleries)
 
             case .fetchGalleriesDone(let type, let result):
                 state.rawLoadingState[type] = .idle
@@ -153,11 +163,11 @@ struct ToplistsReducer: ReducerProtocol {
                     guard !galleries.isEmpty else {
                         state.rawLoadingState[type] = .failed(.notFound)
                         guard pageNumber.hasNextPage() else { return .none }
-                        return .init(value: .fetchMoreGalleries)
+                        return .send(.fetchMoreGalleries)
                     }
                     state.rawPageNumber[type] = pageNumber
                     state.rawGalleries[type] = galleries
-                    return databaseClient.cacheGalleries(galleries).fireAndForget()
+                    return .run(operation: { _ in await databaseClient.cacheGalleries(galleries) })
                 case .failure(let error):
                     state.rawLoadingState[type] = .failed(error)
                 }
@@ -170,9 +180,14 @@ struct ToplistsReducer: ReducerProtocol {
                 else { return .none }
                 state.rawFooterLoadingState[state.type] = .loading
                 let pageNum = pageNumber.current + 1
-                return MoreToplistsGalleriesRequest(catIndex: state.type.categoryIndex, pageNum: pageNum)
-                    .effect.map({ [type = state.type] in Action.fetchMoreGalleriesDone(type, $0) })
-                    .cancellable(id: CancelID.fetchMoreGalleries)
+                return .run { [type = state.type] send in
+                    let response = await MoreToplistsGalleriesRequest(
+                        catIndex: type.categoryIndex, pageNum: pageNum
+                    )
+                    .response()
+                    await send(.fetchMoreGalleriesDone(type, response))
+                }
+                .cancellable(id: CancelID.fetchMoreGalleries)
 
             case .fetchMoreGalleriesDone(let type, let result):
                 state.rawFooterLoadingState[type] = .idle
@@ -181,11 +196,11 @@ struct ToplistsReducer: ReducerProtocol {
                     state.rawPageNumber[type] = pageNumber
                     state.insertGalleries(type: type, galleries: galleries)
 
-                    var effects: [EffectTask<Action>] = [
-                        databaseClient.cacheGalleries(galleries).fireAndForget()
+                    var effects: [Effect<Action>] = [
+                        .run(operation: { _ in await databaseClient.cacheGalleries(galleries) })
                     ]
                     if galleries.isEmpty, pageNumber.hasNextPage() {
-                        effects.append(.init(value: .fetchMoreGalleries))
+                        effects.append(.send(.fetchMoreGalleries))
                     } else if !galleries.isEmpty {
                         state.rawLoadingState[type] = .idle
                     }
@@ -201,6 +216,6 @@ struct ToplistsReducer: ReducerProtocol {
             }
         }
 
-        Scope(state: \.detailState, action: /Action.detail, child: DetailReducer.init)
+        Scope(state: \.detailState.wrappedValue!, action: \.detail, child: DetailReducer.init)
     }
 }

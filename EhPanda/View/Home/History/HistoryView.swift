@@ -9,8 +9,7 @@ import SwiftUI
 import ComposableArchitecture
 
 struct HistoryView: View {
-    private let store: StoreOf<HistoryReducer>
-    @ObservedObject private var viewStore: ViewStoreOf<HistoryReducer>
+    @Bindable private var store: StoreOf<HistoryReducer>
     private let user: User
     @Binding private var setting: Setting
     private let blurRadius: Double
@@ -21,7 +20,6 @@ struct HistoryView: View {
         user: User, setting: Binding<Setting>, blurRadius: Double, tagTranslator: TagTranslator
     ) {
         self.store = store
-        viewStore = ViewStore(store)
         self.user = user
         _setting = setting
         self.blurRadius = blurRadius
@@ -29,50 +27,53 @@ struct HistoryView: View {
     }
 
     var body: some View {
+        let content =
         GenericList(
-            galleries: viewStore.filteredGalleries,
+            galleries: store.filteredGalleries,
             setting: setting,
             pageNumber: nil,
-            loadingState: viewStore.loadingState,
+            loadingState: store.loadingState,
             footerLoadingState: .idle,
-            fetchAction: { viewStore.send(.fetchGalleries) },
-            navigateAction: { viewStore.send(.setNavigation(.detail($0))) },
+            fetchAction: { store.send(.fetchGalleries) },
+            navigateAction: { store.send(.setNavigation(.detail($0))) },
             translateAction: {
                 tagTranslator.lookup(word: $0, returnOriginal: !setting.translatesTags)
             }
         )
-        .sheet(
-            unwrapping: viewStore.binding(\.$route),
-            case: /HistoryReducer.Route.detail,
-            isEnabled: DeviceUtil.isPad
-        ) { route in
-            NavigationView {
-                DetailView(
-                    store: store.scope(state: \.detailState, action: HistoryReducer.Action.detail),
-                    gid: route.wrappedValue, user: user, setting: $setting,
-                    blurRadius: blurRadius, tagTranslator: tagTranslator
-                )
-            }
-            .autoBlur(radius: blurRadius).environment(\.inSheet, true).navigationViewStyle(.stack)
-        }
-        .searchable(text: viewStore.binding(\.$keyword), prompt: L10n.Localizable.Searchable.Prompt.filter)
+        .searchable(text: $store.keyword, prompt: L10n.Localizable.Searchable.Prompt.filter)
         .onAppear {
-            if viewStore.galleries.isEmpty {
+            if store.galleries.isEmpty {
                 DispatchQueue.main.async {
-                    viewStore.send(.fetchGalleries)
+                    store.send(.fetchGalleries)
                 }
             }
         }
         .background(navigationLink)
         .toolbar(content: toolbar)
         .navigationTitle(L10n.Localizable.HistoryView.Title.history)
+
+        if DeviceUtil.isPad {
+            content
+                .sheet(item: $store.route.sending(\.setNavigation).detail, id: \.self) { route in
+                    NavigationView {
+                        DetailView(
+                            store: store.scope(state: \.detailState.wrappedValue!, action: \.detail),
+                            gid: route.wrappedValue, user: user, setting: $setting,
+                            blurRadius: blurRadius, tagTranslator: tagTranslator
+                        )
+                    }
+                    .autoBlur(radius: blurRadius).environment(\.inSheet, true).navigationViewStyle(.stack)
+                }
+        } else {
+            content
+        }
     }
 
     @ViewBuilder private var navigationLink: some View {
         if DeviceUtil.isPhone {
-            NavigationLink(unwrapping: viewStore.binding(\.$route), case: /HistoryReducer.Route.detail) { route in
+            NavigationLink(unwrapping: $store.route, case: \.detail) { route in
                 DetailView(
-                    store: store.scope(state: \.detailState, action: HistoryReducer.Action.detail),
+                    store: store.scope(state: \.detailState.wrappedValue!, action: \.detail),
                     gid: route.wrappedValue, user: user, setting: $setting,
                     blurRadius: blurRadius, tagTranslator: tagTranslator
                 )
@@ -82,18 +83,18 @@ struct HistoryView: View {
     private func toolbar() -> some ToolbarContent {
         CustomToolbarItem {
             Button {
-                viewStore.send(.setNavigation(.clearHistory))
+                store.send(.setNavigation(.clearHistory))
             } label: {
                 Image(systemSymbol: .trashCircle)
             }
-            .disabled(viewStore.loadingState != .idle || viewStore.galleries.isEmpty)
+            .disabled(store.loadingState != .idle || store.galleries.isEmpty)
             .confirmationDialog(
                 message: L10n.Localizable.ConfirmationDialog.Title.clear,
-                unwrapping: viewStore.binding(\.$route),
-                case: /HistoryReducer.Route.clearHistory
+                unwrapping: $store.route,
+                case: \.clearHistory
             ) {
                 Button(L10n.Localizable.ConfirmationDialog.Button.clear, role: .destructive) {
-                    viewStore.send(.clearHistoryGalleries)
+                    store.send(.clearHistoryGalleries)
                 }
             }
         }
@@ -104,10 +105,7 @@ struct HistoryView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationView {
             HistoryView(
-                store: .init(
-                    initialState: .init(),
-                    reducer: HistoryReducer()
-                ),
+                store: .init(initialState: .init(), reducer: HistoryReducer.init),
                 user: .init(),
                 setting: .constant(.init()),
                 blurRadius: 0,

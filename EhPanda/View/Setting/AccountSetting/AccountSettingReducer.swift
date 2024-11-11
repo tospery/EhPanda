@@ -9,7 +9,9 @@ import Foundation
 import TTProgressHUD
 import ComposableArchitecture
 
-struct AccountSettingReducer: ReducerProtocol {
+@Reducer
+struct AccountSettingReducer {
+    @dynamicMemberLookup @CasePathable
     enum Route: Equatable {
         case hud
         case login
@@ -18,10 +20,11 @@ struct AccountSettingReducer: ReducerProtocol {
         case webView(URL)
     }
 
+    @ObservableState
     struct State: Equatable {
-        @BindingState var route: Route?
-        @BindingState var ehCookiesState: CookiesState = .empty(.ehentai)
-        @BindingState var exCookiesState: CookiesState = .empty(.exhentai)
+        var route: Route?
+        var ehCookiesState: CookiesState = .empty(.ehentai)
+        var exCookiesState: CookiesState = .empty(.exhentai)
         var hudConfig: TTProgressHUDConfig = .copiedToClipboardSucceeded
 
         var loginState = LoginReducer.State()
@@ -43,20 +46,20 @@ struct AccountSettingReducer: ReducerProtocol {
     @Dependency(\.cookieClient) private var cookieClient
     @Dependency(\.hapticsClient) private var hapticsClient
 
-    var body: some ReducerProtocol<State, Action> {
+    var body: some Reducer<State, Action> {
         BindingReducer()
+            .onChange(of: \.route) { _, newValue in
+                Reduce({ _, _ in newValue == nil ? .send(.clearSubStates) : .none })
+            }
+            .onChange(of: \.ehCookiesState) { _, newValue in
+                Reduce({ _, _ in .run(operation: { _ in cookieClient.setCookies(state: newValue) }) })
+            }
+            .onChange(of: \.exCookiesState) { _, newValue in
+                Reduce({ _, _ in .run(operation: { _ in cookieClient.setCookies(state: newValue) }) })
+            }
 
         Reduce { state, action in
             switch action {
-            case .binding(\.$route):
-                return state.route == nil ? .send(.clearSubStates) : .none
-
-            case .binding(\.$ehCookiesState):
-                return cookieClient.setCookies(state: state.ehCookiesState).fireAndForget()
-
-            case .binding(\.$exCookiesState):
-                return cookieClient.setCookies(state: state.exCookiesState).fireAndForget()
-
             case .binding:
                 return .none
 
@@ -84,8 +87,8 @@ struct AccountSettingReducer: ReducerProtocol {
                 let cookiesDescription = cookieClient.getCookiesDescription(host: host)
                 return .merge(
                     .send(.setNavigation(.hud)),
-                    clipboardClient.saveText(cookiesDescription).fireAndForget(),
-                    .fireAndForget({ hapticsClient.generateNotificationFeedback(.success) })
+                    .run(operation: { _ in clipboardClient.saveText(cookiesDescription) }),
+                    .run(operation: { _ in hapticsClient.generateNotificationFeedback(.success) })
                 )
 
             case .login(.loginDone):
@@ -100,12 +103,12 @@ struct AccountSettingReducer: ReducerProtocol {
         }
         .haptics(
             unwrapping: \.route,
-            case: /Route.webView,
+            case: \.webView,
             hapticsClient: hapticsClient
         )
 
-        Scope(state: \.loginState, action: /Action.login, child: LoginReducer.init)
-        Scope(state: \.ehSettingState, action: /Action.ehSetting, child: EhSettingReducer.init)
+        Scope(state: \.loginState, action: \.login, child: LoginReducer.init)
+        Scope(state: \.ehSettingState, action: \.ehSetting, child: EhSettingReducer.init)
     }
 }
 

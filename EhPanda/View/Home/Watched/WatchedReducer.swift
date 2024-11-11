@@ -7,10 +7,12 @@
 
 import ComposableArchitecture
 
-struct WatchedReducer: ReducerProtocol {
+@Reducer
+struct WatchedReducer {
+    @CasePathable
     enum Route: Equatable {
-        case filters
-        case quickSearch
+        case filters(EquatableVoid = .init())
+        case quickSearch(EquatableVoid = .init())
         case detail(String)
     }
 
@@ -18,9 +20,10 @@ struct WatchedReducer: ReducerProtocol {
         case fetchGalleries, fetchMoreGalleries
     }
 
+    @ObservableState
     struct State: Equatable {
-        @BindingState var route: Route?
-        @BindingState var keyword = ""
+        var route: Route?
+        var keyword = ""
 
         var galleries = [Gallery]()
         var pageNumber = PageNumber()
@@ -29,10 +32,10 @@ struct WatchedReducer: ReducerProtocol {
 
         var filtersState = FiltersReducer.State()
         var quickSearchState = QuickSearchReducer.State()
-        @Heap var detailState: DetailReducer.State!
+        var detailState: Heap<DetailReducer.State?>
 
         init() {
-            _detailState = .init(.init())
+            detailState = .init(.init())
         }
 
         mutating func insertGalleries(_ galleries: [Gallery]) {
@@ -64,35 +67,35 @@ struct WatchedReducer: ReducerProtocol {
     @Dependency(\.databaseClient) private var databaseClient
     @Dependency(\.hapticsClient) private var hapticsClient
 
-    var body: some ReducerProtocol<State, Action> {
+    var body: some Reducer<State, Action> {
         BindingReducer()
+            .onChange(of: \.route) { _, newValue in
+                Reduce({ _, _ in newValue == nil ? .send(.clearSubStates) : .none })
+            }
 
         Reduce { state, action in
             switch action {
-            case .binding(\.$route):
-                return state.route == nil ? .init(value: .clearSubStates) : .none
-
             case .binding:
                 return .none
 
             case .setNavigation(let route):
                 state.route = route
-                return route == nil ? .init(value: .clearSubStates) : .none
+                return route == nil ? .send(.clearSubStates) : .none
 
             case .clearSubStates:
-                state.detailState = .init()
+                state.detailState.wrappedValue = .init()
                 state.filtersState = .init()
                 state.quickSearchState = .init()
                 return .merge(
-                    .init(value: .detail(.teardown)),
-                    .init(value: .quickSearch(.teardown))
+                    .send(.detail(.teardown)),
+                    .send(.quickSearch(.teardown))
                 )
 
             case .onNotLoginViewButtonTapped:
                 return .none
 
             case .teardown:
-                return .cancel(ids: CancelID.allCases)
+                return .merge(CancelID.allCases.map(Effect.cancel(id:)))
 
             case .fetchGalleries(let keyword):
                 guard state.loadingState != .loading else { return .none }
@@ -102,8 +105,11 @@ struct WatchedReducer: ReducerProtocol {
                 state.loadingState = .loading
                 state.pageNumber.resetPages()
                 let filter = databaseClient.fetchFilterSynchronously(range: .watched)
-                return WatchedGalleriesRequest(filter: filter, keyword: state.keyword)
-                    .effect.map(Action.fetchGalleriesDone).cancellable(id: CancelID.fetchGalleries)
+                return .run { [keyword = state.keyword] send in
+                    let response = await WatchedGalleriesRequest(filter: filter, keyword: keyword).response()
+                    await send(.fetchGalleriesDone(response))
+                }
+                .cancellable(id: CancelID.fetchGalleries)
 
             case .fetchGalleriesDone(let result):
                 state.loadingState = .idle
@@ -112,11 +118,11 @@ struct WatchedReducer: ReducerProtocol {
                     guard !galleries.isEmpty else {
                         state.loadingState = .failed(.notFound)
                         guard pageNumber.hasNextPage() else { return .none }
-                        return .init(value: .fetchMoreGalleries)
+                        return .send(.fetchMoreGalleries)
                     }
                     state.pageNumber = pageNumber
                     state.galleries = galleries
-                    return databaseClient.cacheGalleries(galleries).fireAndForget()
+                    return .run(operation: { _ in await databaseClient.cacheGalleries(galleries) })
                 case .failure(let error):
                     state.loadingState = .failed(error)
                 }
@@ -130,9 +136,14 @@ struct WatchedReducer: ReducerProtocol {
                 else { return .none }
                 state.footerLoadingState = .loading
                 let filter = databaseClient.fetchFilterSynchronously(range: .watched)
-                return MoreWatchedGalleriesRequest(filter: filter, lastID: lastID, keyword: state.keyword).effect
-                    .map(Action.fetchMoreGalleriesDone)
-                    .cancellable(id: CancelID.fetchMoreGalleries)
+                return .run { [keyword = state.keyword] send in
+                    let response = await MoreWatchedGalleriesRequest(
+                        filter: filter, lastID: lastID, keyword: keyword
+                    )
+                    .response()
+                    await send(.fetchMoreGalleriesDone(response))
+                }
+                .cancellable(id: CancelID.fetchMoreGalleries)
 
             case .fetchMoreGalleriesDone(let result):
                 state.footerLoadingState = .idle
@@ -141,11 +152,11 @@ struct WatchedReducer: ReducerProtocol {
                     state.pageNumber = pageNumber
                     state.insertGalleries(galleries)
 
-                    var effects: [EffectTask<Action>] = [
-                        databaseClient.cacheGalleries(galleries).fireAndForget()
+                    var effects: [Effect<Action>] = [
+                        .run(operation: { _ in await databaseClient.cacheGalleries(galleries) })
                     ]
                     if galleries.isEmpty, pageNumber.hasNextPage() {
-                        effects.append(.init(value: .fetchMoreGalleries))
+                        effects.append(.send(.fetchMoreGalleries))
                     } else if !galleries.isEmpty {
                         state.loadingState = .idle
                     }
@@ -168,17 +179,17 @@ struct WatchedReducer: ReducerProtocol {
         }
         .haptics(
             unwrapping: \.route,
-            case: /Route.quickSearch,
+            case: \.quickSearch,
             hapticsClient: hapticsClient
         )
         .haptics(
             unwrapping: \.route,
-            case: /Route.filters,
+            case: \.filters,
             hapticsClient: hapticsClient
         )
 
-        Scope(state: \.filtersState, action: /Action.filters, child: FiltersReducer.init)
-        Scope(state: \.quickSearchState, action: /Action.quickSearch, child: QuickSearchReducer.init)
-        Scope(state: \.detailState, action: /Action.detail, child: DetailReducer.init)
+        Scope(state: \.filtersState, action: \.filters, child: FiltersReducer.init)
+        Scope(state: \.quickSearchState, action: \.quickSearch, child: QuickSearchReducer.init)
+        Scope(state: \.detailState.wrappedValue!, action: \.detail, child: DetailReducer.init)
     }
 }

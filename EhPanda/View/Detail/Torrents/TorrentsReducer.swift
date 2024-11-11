@@ -9,7 +9,9 @@ import Foundation
 import TTProgressHUD
 import ComposableArchitecture
 
-struct TorrentsReducer: ReducerProtocol {
+@Reducer
+struct TorrentsReducer {
+    @CasePathable
     enum Route: Equatable {
         case hud
         case share(URL)
@@ -19,8 +21,9 @@ struct TorrentsReducer: ReducerProtocol {
         case fetchTorrent, fetchGalleryTorrents
     }
 
+    @ObservableState
     struct State: Equatable {
-        @BindingState var route: Route?
+        var route: Route?
         var torrents = [GalleryTorrent]()
         var loadingState: LoadingState = .idle
         var hudConfig: TTProgressHUDConfig = .copiedToClipboardSucceeded
@@ -28,7 +31,7 @@ struct TorrentsReducer: ReducerProtocol {
 
     enum Action: BindableAction, Equatable {
         case binding(BindingAction<State>)
-        case setNavigation(Route)
+        case setNavigation(Route?)
 
         case copyText(String)
         case presentTorrentActivity(String, Data)
@@ -44,7 +47,7 @@ struct TorrentsReducer: ReducerProtocol {
     @Dependency(\.hapticsClient) private var hapticsClient
     @Dependency(\.fileClient) private var fileClient
 
-    var body: some ReducerProtocol<State, Action> {
+    var body: some Reducer<State, Action> {
         BindingReducer()
 
         Reduce { state, action in
@@ -59,34 +62,40 @@ struct TorrentsReducer: ReducerProtocol {
             case .copyText(let magnetURL):
                 state.route = .hud
                 return .merge(
-                    clipboardClient.saveText(magnetURL).fireAndForget(),
-                    .fireAndForget({ hapticsClient.generateNotificationFeedback(.success) })
+                    .run(operation: { _ in clipboardClient.saveText(magnetURL) }),
+                    .run(operation: { _ in hapticsClient.generateNotificationFeedback(.success) })
                 )
 
             case .presentTorrentActivity(let hash, let data):
                 if let url = fileClient.saveTorrent(hash: hash, data: data) {
-                    return .init(value: .setNavigation(.share(url)))
+                    return .send(.setNavigation(.share(url)))
                 }
                 return .none
 
             case .fetchTorrent(let hash, let torrentURL):
-                return DataRequest(url: torrentURL).effect.map({ Action.fetchTorrentDone(hash, $0) })
-                    .cancellable(id: CancelID.fetchTorrent)
+                return .run { send in
+                    let response = await DataRequest(url: torrentURL).response()
+                    await send(.fetchTorrentDone(hash, response))
+                }
+                .cancellable(id: CancelID.fetchTorrent)
 
             case .teardown:
-                return .cancel(ids: CancelID.allCases)
+                return .merge(CancelID.allCases.map(Effect.cancel(id:)))
 
             case .fetchTorrentDone(let hash, let result):
                 if case .success(let data) = result, !data.isEmpty {
-                    return .init(value: .presentTorrentActivity(hash, data))
+                    return .send(.presentTorrentActivity(hash, data))
                 }
                 return .none
 
             case .fetchGalleryTorrents(let gid, let token):
                 guard state.loadingState != .loading else { return .none }
                 state.loadingState = .loading
-                return GalleryTorrentsRequest(gid: gid, token: token)
-                    .effect.map(Action.fetchGalleryTorrentsDone).cancellable(id: CancelID.fetchGalleryTorrents)
+                return .run { send in
+                    let response = await GalleryTorrentsRequest(gid: gid, token: token).response()
+                    await send(.fetchGalleryTorrentsDone(response))
+                }
+                .cancellable(id: CancelID.fetchGalleryTorrents)
 
             case .fetchGalleryTorrentsDone(let result):
                 state.loadingState = .idle
@@ -105,7 +114,7 @@ struct TorrentsReducer: ReducerProtocol {
         }
         .haptics(
             unwrapping: \.route,
-            case: /Route.share,
+            case: \.share,
             hapticsClient: hapticsClient
         )
     }

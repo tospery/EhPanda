@@ -9,8 +9,7 @@ import SwiftUI
 import ComposableArchitecture
 
 struct ArchivesView: View {
-    private let store: StoreOf<ArchivesReducer>
-    @ObservedObject private var viewStore: ViewStoreOf<ArchivesReducer>
+    @Bindable private var store: StoreOf<ArchivesReducer>
     private let gid: String
     private let user: User
     private let galleryURL: URL
@@ -21,7 +20,6 @@ struct ArchivesView: View {
         gid: String, user: User, galleryURL: URL, archiveURL: URL
     ) {
         self.store = store
-        viewStore = ViewStore(store)
         self.gid = gid
         self.user = user
         self.galleryURL = galleryURL
@@ -33,41 +31,48 @@ struct ArchivesView: View {
         NavigationView {
             ZStack {
                 VStack {
-                    HathArchivesView(archives: viewStore.hathArchives, selection: viewStore.binding(\.$selectedArchive))
+                    HathArchivesView(archives: store.hathArchives, selection: $store.selectedArchive)
+
                     Spacer()
+
                     if let credits = Int(user.credits ?? ""), let galleryPoints = Int(user.galleryPoints ?? "") {
                         ArchiveFundsView(credits: credits, galleryPoints: galleryPoints)
                     }
-                    DownloadButton(isDisabled: viewStore.selectedArchive == nil) {
-                        viewStore.send(.fetchDownloadResponse(archiveURL))
+
+                    DownloadButton(isDisabled: store.selectedArchive == nil) {
+                        store.send(.fetchDownloadResponse(archiveURL))
                     }
                 }
-                .padding(.horizontal).opacity(viewStore.hathArchives.isEmpty ? 0 : 1)
-                LoadingView().opacity(
-                    viewStore.loadingState == .loading
-                    && viewStore.hathArchives.isEmpty ? 1 : 0
-                )
-                let error = (/LoadingState.failed).extract(from: viewStore.loadingState)
+                .padding(.horizontal)
+                .opacity(store.hathArchives.isEmpty ? 0 : 1)
+
+                LoadingView()
+                    .opacity(
+                        store.loadingState == .loading
+                        && store.hathArchives.isEmpty ? 1 : 0
+                    )
+
+                let error = store.loadingState.failed
                 ErrorView(error: error ?? .unknown) {
-                    viewStore.send(.fetchArchive(gid, galleryURL, archiveURL))
+                    store.send(.fetchArchive(gid, galleryURL, archiveURL))
                 }
-                .opacity(error != nil && viewStore.hathArchives.isEmpty ? 1 : 0)
+                .opacity(error != nil && store.hathArchives.isEmpty ? 1 : 0)
             }
             .progressHUD(
-                config: viewStore.communicatingHUDConfig,
-                unwrapping: viewStore.binding(\.$route),
-                case: /ArchivesReducer.Route.communicatingHUD
+                config: store.communicatingHUDConfig,
+                unwrapping: $store.route,
+                case: \.communicatingHUD
             )
             .progressHUD(
-                config: viewStore.messageHUDConfig,
-                unwrapping: viewStore.binding(\.$route),
-                case: /ArchivesReducer.Route.messageHUD
+                config: store.messageHUDConfig,
+                unwrapping: $store.route,
+                case: \.messageHUD
             )
-            .animation(.default, value: viewStore.hathArchives)
+            .animation(.default, value: store.hathArchives)
             .animation(.default, value: user.galleryPoints)
             .animation(.default, value: user.credits)
             .onAppear {
-                viewStore.send(.fetchArchive(gid, galleryURL, archiveURL))
+                store.send(.fetchArchive(gid, galleryURL, archiveURL))
             }
             .navigationTitle(L10n.Localizable.ArchivesView.Title.archives)
         }
@@ -221,10 +226,7 @@ private struct DownloadButton: View {
 struct ArchivesView_Previews: PreviewProvider {
     static var previews: some View {
         ArchivesView(
-            store: .init(
-                initialState: .init(),
-                reducer: ArchivesReducer()
-            ),
+            store: .init(initialState: .init(), reducer: ArchivesReducer.init),
             gid: .init(),
             user: .init(),
             galleryURL: .mock,

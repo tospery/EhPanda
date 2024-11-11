@@ -7,17 +7,20 @@
 
 import ComposableArchitecture
 
-struct SearchRootReducer: ReducerProtocol {
+@Reducer
+struct SearchRootReducer {
+    @CasePathable
     enum Route: Equatable {
         case search
-        case filters
-        case quickSearch
+        case filters(EquatableVoid = .init())
+        case quickSearch(EquatableVoid = .init())
         case detail(String)
     }
 
+    @ObservableState
     struct State: Equatable {
-        @BindingState var route: Route?
-        @BindingState var keyword = ""
+        var route: Route?
+        var keyword = ""
         var historyGalleries = [Gallery]()
 
         var historyKeywords = [String]()
@@ -26,10 +29,10 @@ struct SearchRootReducer: ReducerProtocol {
         var searchState = SearchReducer.State()
         var filtersState = FiltersReducer.State()
         var quickSearchState = QuickSearchReducer.State()
-        @Heap var detailState: DetailReducer.State!
+        var detailState: Heap<DetailReducer.State?>
 
         init() {
-            _detailState = .init(.init())
+            detailState = .init(.init())
         }
 
         mutating func appendHistoryKeywords(_ keywords: [String]) {
@@ -86,19 +89,21 @@ struct SearchRootReducer: ReducerProtocol {
     @Dependency(\.databaseClient) private var databaseClient
     @Dependency(\.hapticsClient) private var hapticsClient
 
-    var body: some ReducerProtocol<State, Action> {
+    var body: some Reducer<State, Action> {
         BindingReducer()
+            .onChange(of: \.route) { _, newValue in
+                Reduce { _, _ in
+                    newValue == nil
+                    ? .merge(
+                        .send(.clearSubStates),
+                        .send(.fetchDatabaseInfos)
+                    )
+                    : .none
+                }
+            }
 
         Reduce { state, action in
             switch action {
-            case .binding(\.$route):
-                return state.route == nil
-                ? .merge(
-                    .init(value: .clearSubStates),
-                    .init(value: .fetchDatabaseInfos)
-                )
-                : .none
-
             case .binding:
                 return .none
 
@@ -106,8 +111,8 @@ struct SearchRootReducer: ReducerProtocol {
                 state.route = route
                 return route == nil
                 ? .merge(
-                    .init(value: .clearSubStates),
-                    .init(value: .fetchDatabaseInfos)
+                    .send(.clearSubStates),
+                    .send(.fetchDatabaseInfos)
                 )
                 : .none
 
@@ -117,20 +122,25 @@ struct SearchRootReducer: ReducerProtocol {
 
             case .clearSubStates:
                 state.searchState = .init()
-                state.detailState = .init()
+                state.detailState.wrappedValue = .init()
                 state.filtersState = .init()
                 state.quickSearchState = .init()
                 return .merge(
-                    .init(value: .search(.teardown)),
-                    .init(value: .quickSearch(.teardown)),
-                    .init(value: .detail(.teardown))
+                    .send(.search(.teardown)),
+                    .send(.quickSearch(.teardown)),
+                    .send(.detail(.teardown))
                 )
 
             case .syncHistoryKeywords:
-                return databaseClient.updateHistoryKeywords(state.historyKeywords).fireAndForget()
+                return .run { [state] _ in
+                    await databaseClient.updateHistoryKeywords(state.historyKeywords)
+                }
 
             case .fetchDatabaseInfos:
-                return databaseClient.fetchAppEnv().map(Action.fetchDatabaseInfosDone)
+                return .run { send in
+                    let appEnv = await databaseClient.fetchAppEnv()
+                    await send(.fetchDatabaseInfosDone(appEnv))
+                }
 
             case .fetchDatabaseInfosDone(let appEnv):
                 state.historyKeywords = appEnv.historyKeywords
@@ -139,14 +149,17 @@ struct SearchRootReducer: ReducerProtocol {
 
             case .appendHistoryKeyword(let keyword):
                 state.appendHistoryKeywords([keyword])
-                return .init(value: .syncHistoryKeywords)
+                return .send(.syncHistoryKeywords)
 
             case .removeHistoryKeyword(let keyword):
                 state.removeHistoryKeyword(keyword)
-                return .init(value: .syncHistoryKeywords)
+                return .send(.syncHistoryKeywords)
 
             case .fetchHistoryGalleries:
-                return databaseClient.fetchHistoryGalleries(fetchLimit: 10).map(Action.fetchHistoryGalleriesDone)
+                return .run { send in
+                    let historyGalleries = await databaseClient.fetchHistoryGalleries(fetchLimit: 10)
+                    await send(.fetchHistoryGalleriesDone(historyGalleries))
+                }
 
             case .fetchHistoryGalleriesDone(let galleries):
                 state.historyGalleries = Array(galleries.prefix(min(galleries.count, 10)))
@@ -158,7 +171,7 @@ struct SearchRootReducer: ReducerProtocol {
                 } else {
                     state.appendHistoryKeywords([state.searchState.lastKeyword])
                 }
-                return .init(value: .syncHistoryKeywords)
+                return .send(.syncHistoryKeywords)
 
             case .search:
                 return .none
@@ -175,18 +188,18 @@ struct SearchRootReducer: ReducerProtocol {
         }
         .haptics(
             unwrapping: \.route,
-            case: /Route.quickSearch,
+            case: \.quickSearch,
             hapticsClient: hapticsClient
         )
         .haptics(
             unwrapping: \.route,
-            case: /Route.filters,
+            case: \.filters,
             hapticsClient: hapticsClient
         )
 
-        Scope(state: \.searchState, action: /Action.search, child: SearchReducer.init)
-        Scope(state: \.filtersState, action: /Action.filters, child: FiltersReducer.init)
-        Scope(state: \.quickSearchState, action: /Action.quickSearch, child: QuickSearchReducer.init)
-        Scope(state: \.detailState, action: /Action.detail, child: DetailReducer.init)
+        Scope(state: \.searchState, action: \.search, child: SearchReducer.init)
+        Scope(state: \.filtersState, action: \.filters, child: FiltersReducer.init)
+        Scope(state: \.quickSearchState, action: \.quickSearch, child: QuickSearchReducer.init)
+        Scope(state: \.detailState.wrappedValue!, action: \.detail, child: DetailReducer.init)
     }
 }

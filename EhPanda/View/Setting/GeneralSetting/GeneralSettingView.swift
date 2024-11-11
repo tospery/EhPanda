@@ -10,8 +10,7 @@ import FilePicker
 import ComposableArchitecture
 
 struct GeneralSettingView: View {
-    private let store: StoreOf<GeneralSettingReducer>
-    @ObservedObject private var viewStore: ViewStoreOf<GeneralSettingReducer>
+    @Bindable private var store: StoreOf<GeneralSettingReducer>
     private let tagTranslatorLoadingState: LoadingState
     private let tagTranslatorEmpty: Bool
     private let tagTranslatorHasCustomTranslations: Bool
@@ -34,7 +33,6 @@ struct GeneralSettingView: View {
         autoLockPolicy: Binding<AutoLockPolicy>
     ) {
         self.store = store
-        viewStore = ViewStore(store)
         self.tagTranslatorLoadingState = tagTranslatorLoadingState
         self.tagTranslatorEmpty = tagTranslatorEmpty
         self.tagTranslatorHasCustomTranslations = tagTranslatorHasCustomTranslations
@@ -60,12 +58,12 @@ struct GeneralSettingView: View {
                     Text(L10n.Localizable.GeneralSettingView.Title.language)
                     Spacer()
                     Button(language) {
-                        viewStore.send(.navigateToSystemSetting)
+                        store.send(.navigateToSystemSetting)
                     }
                     .foregroundStyle(.tint)
                 }
                 Button(L10n.Localizable.GeneralSettingView.Button.logs) {
-                    viewStore.send(.setNavigation(.logs))
+                    store.send(.setNavigation(.logs))
                 }
                 .foregroundColor(.primary).withArrow()
             }
@@ -96,22 +94,22 @@ struct GeneralSettingView: View {
                     title: L10n.Localizable.GeneralSettingView.Button.importCustomTranslations
                 ) { urls in
                     if let url = urls.first {
-                        viewStore.send(.onTranslationsFilePicked(url))
+                        store.send(.onTranslationsFilePicked(url))
                     }
                 }
                 if tagTranslatorHasCustomTranslations {
                     Button(
                         L10n.Localizable.GeneralSettingView.Button.removeCustomTranslations,
-                        role: .destructive, action: { viewStore.send(.setNavigation(.removeCustomTranslations)) }
+                        role: .destructive, action: { store.send(.setNavigation(.removeCustomTranslations)) }
                     )
                     .confirmationDialog(
                         message: L10n.Localizable.ConfirmationDialog.Title.removeCustomTranslations,
-                        unwrapping: viewStore.binding(\.$route),
-                        case: /GeneralSettingReducer.Route.removeCustomTranslations
+                        unwrapping: $store.route,
+                        case: \.removeCustomTranslations
                     ) {
                         Button(L10n.Localizable.ConfirmationDialog.Button.remove, role: .destructive) {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                viewStore.send(.onRemoveCustomTranslations)
+                                store.send(.onRemoveCustomTranslations)
                             }
                         }
                     }
@@ -138,7 +136,7 @@ struct GeneralSettingView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    if viewStore.passcodeNotSet && autoLockPolicy != .never {
+                    if store.passcodeNotSet && autoLockPolicy != .never {
                         Image(systemSymbol: .exclamationmarkTriangleFill).foregroundStyle(.yellow)
                     }
                 }
@@ -153,22 +151,22 @@ struct GeneralSettingView: View {
             }
             Section(L10n.Localizable.GeneralSettingView.Section.Title.caches) {
                 Button {
-                    viewStore.send(.setNavigation(.clearCache))
+                    store.send(.setNavigation(.clearCache))
                 } label: {
                     HStack {
                         Text(L10n.Localizable.GeneralSettingView.Button.clearImageCaches)
                         Spacer()
-                        Text(viewStore.diskImageCacheSize).foregroundStyle(.tint)
+                        Text(store.diskImageCacheSize).foregroundStyle(.tint)
                     }
                     .foregroundColor(.primary)
                 }
                 .confirmationDialog(
                     message: L10n.Localizable.ConfirmationDialog.Title.clear,
-                    unwrapping: viewStore.binding(\.$route),
-                    case: /GeneralSettingReducer.Route.clearCache
+                    unwrapping: $store.route,
+                    case: \.clearCache
                 ) {
                     Button(L10n.Localizable.ConfirmationDialog.Button.clear, role: .destructive) {
-                        viewStore.send(.clearWebImageCache)
+                        store.send(.clearWebImageCache)
                     }
                 }
             }
@@ -178,16 +176,16 @@ struct GeneralSettingView: View {
         .animation(.default, value: enablesTagsExtension)
         .animation(.default, value: tagTranslatorEmpty)
         .onAppear {
-            viewStore.send(.checkPasscodeSetting)
-            viewStore.send(.calculateWebImageDiskCache)
+            store.send(.checkPasscodeSetting)
+            store.send(.calculateWebImageDiskCache)
         }
         .background(navigationLink)
         .navigationTitle(L10n.Localizable.GeneralSettingView.Title.general)
     }
 
     private var navigationLink: some View {
-        NavigationLink(unwrapping: viewStore.binding(\.$route), case: /GeneralSettingReducer.Route.logs) { _ in
-            LogsView(store: store.scope(state: \.logsState, action: GeneralSettingReducer.Action.logs))
+        NavigationLink(unwrapping: $store.route, case: \.logs) { _ in
+            LogsView(store: store.scope(state: \.logsState, action: \.logs))
         }
     }
 }
@@ -196,10 +194,7 @@ struct GeneralSettingView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationView {
             GeneralSettingView(
-                store: .init(
-                    initialState: .init(),
-                    reducer: GeneralSettingReducer()
-                ),
+                store: .init(initialState: .init(), reducer: GeneralSettingReducer.init),
                 tagTranslatorLoadingState: .idle,
                 tagTranslatorEmpty: false,
                 tagTranslatorHasCustomTranslations: false,

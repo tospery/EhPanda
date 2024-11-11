@@ -7,9 +7,11 @@
 
 import ComposableArchitecture
 
-struct PopularReducer: ReducerProtocol {
+@Reducer
+struct PopularReducer {
+    @dynamicMemberLookup @CasePathable
     enum Route: Equatable {
-        case filters
+        case filters(EquatableVoid = .unique)
         case detail(String)
     }
 
@@ -17,9 +19,10 @@ struct PopularReducer: ReducerProtocol {
         case fetchGalleries
     }
 
+    @ObservableState
     struct State: Equatable {
-        @BindingState var route: Route?
-        @BindingState var keyword = ""
+        var route: Route?
+        var keyword = ""
 
         var filteredGalleries: [Gallery] {
             guard !keyword.isEmpty else { return galleries }
@@ -29,10 +32,10 @@ struct PopularReducer: ReducerProtocol {
         var loadingState: LoadingState = .idle
 
         var filtersState = FiltersReducer.State()
-        @Heap var detailState: DetailReducer.State!
+        var detailState: Heap<DetailReducer.State?>
 
         init() {
-            _detailState = .init(.init())
+            detailState = .init(.init())
         }
     }
 
@@ -52,25 +55,25 @@ struct PopularReducer: ReducerProtocol {
     @Dependency(\.databaseClient) private var databaseClient
     @Dependency(\.hapticsClient) private var hapticsClient
 
-    var body: some ReducerProtocol<State, Action> {
+    var body: some Reducer<State, Action> {
         BindingReducer()
+            .onChange(of: \.route) { _, newValue in
+                Reduce({ _, _ in newValue == nil ? .send(.clearSubStates) : .none })
+            }
 
         Reduce { state, action in
             switch action {
-            case .binding(\.$route):
-                return state.route == nil ? .init(value: .clearSubStates) : .none
-
             case .binding:
                 return .none
 
             case .setNavigation(let route):
                 state.route = route
-                return route == nil ? .init(value: .clearSubStates) : .none
+                return route == nil ? .send(.clearSubStates) : .none
 
             case .clearSubStates:
-                state.detailState = .init()
+                state.detailState.wrappedValue = .init()
                 state.filtersState = .init()
-                return .init(value: .detail(.teardown))
+                return .send(.detail(.teardown))
 
             case .teardown:
                 return .cancel(id: CancelID.fetchGalleries)
@@ -79,8 +82,11 @@ struct PopularReducer: ReducerProtocol {
                 guard state.loadingState != .loading else { return .none }
                 state.loadingState = .loading
                 let filter = databaseClient.fetchFilterSynchronously(range: .global)
-                return PopularGalleriesRequest(filter: filter)
-                    .effect.map(Action.fetchGalleriesDone).cancellable(id: CancelID.fetchGalleries)
+                return .run { send in
+                    let response = await PopularGalleriesRequest(filter: filter).response()
+                    await send(.fetchGalleriesDone(response))
+                }
+                .cancellable(id: CancelID.fetchGalleries)
 
             case .fetchGalleriesDone(let result):
                 state.loadingState = .idle
@@ -91,7 +97,7 @@ struct PopularReducer: ReducerProtocol {
                         return .none
                     }
                     state.galleries = galleries
-                    return databaseClient.cacheGalleries(galleries).fireAndForget()
+                    return .run(operation: { _ in await databaseClient.cacheGalleries(galleries) })
                 case .failure(let error):
                     state.loadingState = .failed(error)
                 }
@@ -106,11 +112,11 @@ struct PopularReducer: ReducerProtocol {
         }
         .haptics(
             unwrapping: \.route,
-            case: /Route.filters,
+            case: \.filters,
             hapticsClient: hapticsClient
         )
 
-        Scope(state: \.filtersState, action: /Action.filters, child: FiltersReducer.init)
-        Scope(state: \.detailState, action: /Action.detail, child: DetailReducer.init)
+        Scope(state: \.filtersState, action: \.filters, child: FiltersReducer.init)
+        Scope(state: \.detailState.wrappedValue!, action: \.detail, child: DetailReducer.init)
     }
 }

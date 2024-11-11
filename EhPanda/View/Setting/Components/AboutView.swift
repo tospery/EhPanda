@@ -111,16 +111,16 @@ struct AboutView: View {
             text: L10n.Constant.App.CodeLevelContributor.Text.chihchy
         ),
         .init(
+            urlString: L10n.Constant.App.CodeLevelContributor.Link.jimmyPrime,
+            text: L10n.Constant.App.CodeLevelContributor.Text.jimmyPrime
+        ),
+        .init(
             urlString: L10n.Constant.App.CodeLevelContributor.Link.xioxin,
             text: L10n.Constant.App.CodeLevelContributor.Text.xioxin
         ),
         .init(
-            urlString: L10n.Constant.App.CodeLevelContributor.Link.ethanChinCN,
-            text: L10n.Constant.App.CodeLevelContributor.Text.ethanChinCN
-        ),
-        .init(
-            urlString: L10n.Constant.App.CodeLevelContributor.Link.lengYue,
-            text: L10n.Constant.App.CodeLevelContributor.Text.lengYue
+            urlString: L10n.Constant.App.CodeLevelContributor.Link.vvbbnn00,
+            text: L10n.Constant.App.CodeLevelContributor.Text.vvbbnn00
         )
     ]}()
 

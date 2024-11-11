@@ -9,8 +9,7 @@ import SwiftUI
 import ComposableArchitecture
 
 struct SearchView: View {
-    private let store: StoreOf<SearchReducer>
-    @ObservedObject private var viewStore: ViewStoreOf<SearchReducer>
+    @Bindable private var store: StoreOf<SearchReducer>
     private let keyword: String
     private let user: User
     @Binding private var setting: Setting
@@ -22,7 +21,6 @@ struct SearchView: View {
         keyword: String, user: User, setting: Binding<Setting>, blurRadius: Double, tagTranslator: TagTranslator
     ) {
         self.store = store
-        viewStore = ViewStore(store)
         self.keyword = keyword
         self.user = user
         _setting = setting
@@ -31,74 +29,77 @@ struct SearchView: View {
     }
 
     var body: some View {
+        let content =
         GenericList(
-            galleries: viewStore.galleries,
+            galleries: store.galleries,
             setting: setting,
-            pageNumber: viewStore.pageNumber,
-            loadingState: viewStore.loadingState,
-            footerLoadingState: viewStore.footerLoadingState,
-            fetchAction: { viewStore.send(.fetchGalleries()) },
-            fetchMoreAction: { viewStore.send(.fetchMoreGalleries) },
-            navigateAction: { viewStore.send(.setNavigation(.detail($0))) },
+            pageNumber: store.pageNumber,
+            loadingState: store.loadingState,
+            footerLoadingState: store.footerLoadingState,
+            fetchAction: { store.send(.fetchGalleries()) },
+            fetchMoreAction: { store.send(.fetchMoreGalleries) },
+            navigateAction: { store.send(.setNavigation(.detail($0))) },
             translateAction: {
                 tagTranslator.lookup(word: $0, returnOriginal: !setting.translatesTags)
             }
         )
-        .sheet(
-            unwrapping: viewStore.binding(\.$route),
-            case: /SearchReducer.Route.detail,
-            isEnabled: DeviceUtil.isPad
-        ) { route in
-            NavigationView {
-                DetailView(
-                    store: store.scope(state: \.detailState, action: SearchReducer.Action.detail),
-                    gid: route.wrappedValue, user: user, setting: $setting,
-                    blurRadius: blurRadius, tagTranslator: tagTranslator
-                )
-            }
-            .autoBlur(radius: blurRadius).environment(\.inSheet, true).navigationViewStyle(.stack)
-        }
-        .sheet(unwrapping: viewStore.binding(\.$route), case: /SearchReducer.Route.quickSearch) { _ in
+        .sheet(item: $store.route.sending(\.setNavigation).quickSearch) { _ in
             QuickSearchView(
-                store: store.scope(state: \.quickSearchState, action: SearchReducer.Action.quickSearch)
+                store: store.scope(state: \.quickSearchState, action: \.quickSearch)
             ) { keyword in
-                viewStore.send(.setNavigation(nil))
-                viewStore.send(.fetchGalleries(keyword))
+                store.send(.setNavigation(nil))
+                store.send(.fetchGalleries(keyword))
             }
             .accentColor(setting.accentColor)
             .autoBlur(radius: blurRadius)
         }
-        .sheet(unwrapping: viewStore.binding(\.$route), case: /SearchReducer.Route.filters) { _ in
-            FiltersView(store: store.scope(state: \.filtersState, action: SearchReducer.Action.filters))
+        .sheet(item: $store.route.sending(\.setNavigation).filters) { _ in
+            FiltersView(store: store.scope(state: \.filtersState, action: \.filters))
                 .accentColor(setting.accentColor).autoBlur(radius: blurRadius)
         }
-        .searchable(text: viewStore.binding(\.$keyword))
+        .searchable(text: $store.keyword)
         .searchSuggestions {
             TagSuggestionView(
-                keyword: viewStore.binding(\.$keyword), translations: tagTranslator.translations,
+                keyword: $store.keyword, translations: tagTranslator.translations,
                 showsImages: setting.showsImagesInTags, isEnabled: setting.showsTagsSearchSuggestion
             )
         }
         .onSubmit(of: .search) {
-            viewStore.send(.fetchGalleries())
+            store.send(.fetchGalleries())
         }
         .onAppear {
-            if viewStore.galleries.isEmpty {
+            if store.galleries.isEmpty {
                 DispatchQueue.main.async {
-                    viewStore.send(.fetchGalleries(keyword))
+                    store.send(.fetchGalleries(keyword))
                 }
             }
         }
         .background(navigationLink)
         .toolbar(content: toolbar)
-        .navigationTitle(viewStore.lastKeyword)
+        .navigationTitle(store.lastKeyword)
+
+        if DeviceUtil.isPad {
+            content
+                .sheet(item: $store.route.sending(\.setNavigation).detail, id: \.self) { route in
+                    NavigationView {
+                        DetailView(
+                            store: store.scope(state: \.detailState.wrappedValue!, action: \.detail),
+                            gid: route.wrappedValue, user: user, setting: $setting,
+                            blurRadius: blurRadius, tagTranslator: tagTranslator
+                        )
+                    }
+                    .autoBlur(radius: blurRadius).environment(\.inSheet, true).navigationViewStyle(.stack)
+                }
+        } else {
+            content
+        }
     }
 
     @ViewBuilder private var navigationLink: some View {
         if DeviceUtil.isPhone {
-            NavigationLink(unwrapping: viewStore.binding(\.$route), case: /SearchReducer.Route.detail) { route in
+            NavigationLink(unwrapping: $store.route, case: \.detail) { route in
                 DetailView(
-                    store: store.scope(state: \.detailState, action: SearchReducer.Action.detail),
+                    store: store.scope(state: \.detailState.wrappedValue!, action: \.detail),
                     gid: route.wrappedValue, user: user, setting: $setting,
                     blurRadius: blurRadius, tagTranslator: tagTranslator
                 )
@@ -109,10 +110,10 @@ struct SearchView: View {
         CustomToolbarItem {
             ToolbarFeaturesMenu {
                 FiltersButton {
-                    viewStore.send(.setNavigation(.filters))
+                    store.send(.setNavigation(.filters()))
                 }
                 QuickSearchButton {
-                    viewStore.send(.setNavigation(.quickSearch))
+                    store.send(.setNavigation(.quickSearch()))
                 }
             }
         }
@@ -122,10 +123,7 @@ struct SearchView: View {
 struct SearchView_Previews: PreviewProvider {
     static var previews: some View {
         SearchView(
-            store: .init(
-                initialState: .init(),
-                reducer: SearchReducer()
-            ),
+            store: .init(initialState: .init(), reducer: SearchReducer.init),
             keyword: .init(),
             user: .init(),
             setting: .constant(.init()),

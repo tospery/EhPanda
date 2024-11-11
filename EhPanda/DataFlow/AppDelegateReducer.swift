@@ -9,7 +9,9 @@ import SwiftUI
 import SwiftyBeaver
 import ComposableArchitecture
 
-struct AppDelegateReducer: ReducerProtocol {
+@Reducer
+struct AppDelegateReducer {
+    @ObservableState
     struct State: Equatable {
         var migrationState = MigrationReducer.State()
     }
@@ -25,39 +27,37 @@ struct AppDelegateReducer: ReducerProtocol {
     @Dependency(\.libraryClient) private var libraryClient
     @Dependency(\.cookieClient) private var cookieClient
 
-    var body: some ReducerProtocol<State, Action> {
+    var body: some Reducer<State, Action> {
         Reduce { _, action in
             switch action {
             case .onLaunchFinish:
                 return .merge(
-                    libraryClient.initializeLogger().fireAndForget(),
-                    libraryClient.initializeWebImage().fireAndForget(),
-                    cookieClient.removeYay().fireAndForget(),
-                    cookieClient.syncExCookies().fireAndForget(),
-                    cookieClient.ignoreOffensive().fireAndForget(),
-                    cookieClient.fulfillAnotherHostField().fireAndForget(),
-                    .init(value: .migration(.prepareDatabase))
+                    .run(operation: { _ in libraryClient.initializeLogger() }),
+                    .run(operation: { _ in libraryClient.initializeWebImage() }),
+                    .run(operation: { _ in cookieClient.removeYay() }),
+                    .run(operation: { _ in cookieClient.syncExCookies() }),
+                    .run(operation: { _ in cookieClient.ignoreOffensive() }),
+                    .run(operation: { _ in cookieClient.fulfillAnotherHostField() }),
+                    .send(.migration(.prepareDatabase))
                 )
 
             case .removeExpiredImageURLs:
-                return databaseClient.removeExpiredImageURLs().fireAndForget()
+                return .run(operation: { _ in await databaseClient.removeExpiredImageURLs() })
 
             case .migration:
                 return .none
             }
         }
 
-        Scope(state: \.migrationState, action: /Action.migration, child: MigrationReducer.init)
+        Scope(state: \.migrationState, action: \.migration, child: MigrationReducer.init)
     }
 }
 
 // MARK: AppDelegate
 class AppDelegate: UIResponder, UIApplicationDelegate {
-    let store = Store(
-        initialState: .init(),
-        reducer: AppReducer()
-    )
-    lazy var viewStore = ViewStore(store)
+    let store = Store(initialState: .init()) {
+        AppReducer()
+    }
 
     static var orientationMask: UIInterfaceOrientationMask = DeviceUtil.isPad ? .all : [.portrait, .portraitUpsideDown]
 
@@ -70,7 +70,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         if !AppUtil.isTesting {
-            viewStore.send(.appDelegate(.onLaunchFinish))
+            store.send(.appDelegate(.onLaunchFinish))
         }
         return true
     }
